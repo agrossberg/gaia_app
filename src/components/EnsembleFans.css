@@ -1,0 +1,146 @@
+.ensemble-fans-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.ensemble-controls {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+}
+
+.ensemble-wrapper {
+  flex: 1;
+  position: relative;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  overflow: hidden;
+}
+
+.ensemble-fans {
+  display: block;
+  background: var(--bg-secondary);
+}
+
+.confidence-band {
+  transition: all 0.2s ease;
+}
+
+.confidence-band:hover {
+  fill-opacity: 0.4 !important;
+}
+
+.ensemble-line {
+  transition: all 0.2s ease;
+}
+
+.ensemble-line:hover {
+  stroke-width: 4px !important;
+}
+
+.ensemble-point {
+  transition: all 0.2s ease;
+}
+
+.ensemble-point:hover {
+  r: 6 !important;
+  stroke-width: 2px !important;
+}
+
+.x-axis text,
+.y-axis text {
+  font-family: 'Arial', sans-serif;
+  font-weight: 500;
+}
+
+.x-axis path,
+.y-axis path,
+.x-axis line,
+.y-axis line {
+  stroke: var(--text-secondary);
+  stroke-width: 1;
+}
+
+.ensemble-title {
+  font-family: 'Arial', sans-serif;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.ensemble-legend text {
+  font-family: 'Arial', sans-serif;
+}
+
+.ensemble-tooltip {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: 'Arial', sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .ensemble-fans-container {
+    padding: 10px;
+  }
+  
+  .ensemble-controls {
+    padding: 12px;
+  }
+  
+  .control-info h3 {
+    font-size: 16px;
+  }
+  
+  .control-info p {
+    font-size: 13px;
+  }
+  
+  .ensemble-fans {
+    height: 500px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .ensemble-line {
+    stroke-width: 3px !important;
+  }
+  
+  .ensemble-point {
+    stroke-width: 2px !important;
+  }
+  
+  .ensemble-controls {
+    border-width: 2px;
+    background: var(--bg-primary);
+  }
+  
+  .ensemble-wrapper {
+    border-width: 2px;
+    background: var(--bg-primary);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .confidence-band,
+  .ensemble-line,
+  .ensemble-point {
+    transition: none !important;
+  }
+} 

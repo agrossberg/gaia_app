@@ -345,8 +345,8 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     // Create container for all elements
     const container = svg.append('g');
 
-    // Theme-aware text color
-    const textColor = isDarkMode ? 'white' : '#002B32';
+    // Theme-aware text color - properly resolved for D3
+    const textColor = isDarkMode ? '#ffffff' : '#002B32';
     
     // Add time series labels on the left - positioned for scrollable layout
     const timeSeriesLabels = ['10 min', '30 min', '90 min', '48 hours'];

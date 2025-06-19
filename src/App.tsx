@@ -1,11 +1,109 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PathwayVisualization from './components/PathwayVisualization';
+import HierarchicalNetwork from './components/HierarchicalNetwork';
+import SankeyFlowDiagram from './components/SankeyFlowDiagram';
+import RadarChart from './components/RadarChart';
+import PerturbationAnimation from './components/PerturbationAnimation';
+import EnsembleFans from './components/EnsembleFans';
+import DoseResponse3D from './components/DoseResponse3D';
 import { generateMockData, applyDrugPerturbation, DRUG_TREATMENTS } from './data/mockData';
 import { PathwayData, VisualizationMode, OmicsType, BiologicalNode } from './types';
 import { NaturalLanguageQueryParser, QueryResult, EXAMPLE_QUERIES } from './utils/naturalLanguageQuery';
 import './App.css';
 
+// Dashboard view types
+type DashboardView = 'dashboard' | 'network' | 'heatmap' | 'sankey' | 'radar' | 'animation' | 'ensemble' | 'drugdesign' | 'dose3d' | 'featurespace';
+
+// Visualization tile configuration
+interface VisualizationTile {
+  id: DashboardView;
+  title: string;
+  description: string;
+  category: 'molecular' | 'cellular' | 'system' | 'design';
+  status: 'active' | 'preview' | 'coming-soon';
+  icon: string;
+}
+
+const VISUALIZATION_TILES: VisualizationTile[] = [
+  {
+    id: 'network',
+    title: 'Network Explorer',
+    description: 'Interactive molecular network visualization with drug perturbation effects',
+    category: 'molecular',
+    status: 'active',
+    icon: '🌐'
+  },
+  {
+    id: 'heatmap',
+    title: 'Hierarchical Network',
+    description: 'Multi-scale constellation from molecular to system-level organization',
+    category: 'molecular',
+    status: 'active',
+    icon: '🔥'
+  },
+  {
+    id: 'sankey',
+    title: 'Multi-Scale Flow',
+    description: 'Sankey diagrams showing molecular → cellular → system cascades',
+    category: 'system',
+    status: 'active',
+    icon: '🌊'
+  },
+  {
+    id: 'radar',
+    title: 'Drug Profile Radar',
+    description: 'Spider charts comparing drug effects across multiple dimensions',
+    category: 'design',
+    status: 'preview',
+    icon: '🕸️'
+  },
+  {
+    id: 'animation',
+    title: 'Perturbation Animation',
+    description: 'Animated propagation of drug effects through biological networks',
+    category: 'molecular',
+    status: 'preview',
+    icon: '⚡'
+  },
+  {
+    id: 'ensemble',
+    title: 'Prediction Fans',
+    description: 'Uncertainty visualization with ensemble prediction confidence bands',
+    category: 'system',
+    status: 'preview',
+    icon: '📊'
+  },
+  {
+    id: 'drugdesign',
+    title: 'Drug Design Explorer',
+    description: 'Interactive parameter space for novel drug design and optimization',
+    category: 'design',
+    status: 'coming-soon',
+    icon: '🧪'
+  },
+  {
+    id: 'dose3d',
+    title: '3D Dose Response',
+    description: '3D surface plots showing dose-response relationships across conditions',
+    category: 'system',
+    status: 'preview',
+    icon: '📈'
+  },
+  {
+    id: 'featurespace',
+    title: 'Feature Space Navigation',
+    description: 'Navigate drug feature space with evolutionary optimization visualization',
+    category: 'design',
+    status: 'coming-soon',
+    icon: '🎯'
+  }
+];
+
 function App() {
+  // Dashboard state
+  const [currentView, setCurrentView] = useState<DashboardView>('dashboard');
+  
+  // Existing states (preserved exactly)
   const [baselineData, setBaselineData] = useState<PathwayData>({ nodes: [], links: [], pathways: [] });
   const [dimensions, setDimensions] = useState({
     width: Math.max(2000, window.innerWidth * 1.8),
@@ -181,31 +279,67 @@ function App() {
     setIsDarkMode(!isDarkMode);
   };
 
-  return (
-    <div className="app">
-      <div className="app-header">
-        <div className="header-content">
-          <div className="header-left">
-            <h1>GAIA</h1>
-          </div>
-          <div className="header-center">
-          </div>
-          <div className="header-right">
-            <div className="header-nav">
-              <button 
-                className="theme-toggle"
-                onClick={toggleTheme}
-                title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
-              >
-              </button>
-              <span className="nav-item">Setup</span>
-              <span className="nav-item active">Dashboard</span>
-              <span className="nav-item">Sign-In</span>
+  // Dashboard tile click handler
+  const handleTileClick = (tileId: DashboardView) => {
+    const tile = VISUALIZATION_TILES.find(t => t.id === tileId);
+    if (tile?.status === 'active' || tile?.status === 'preview') {
+      setCurrentView(tileId);
+    }
+  };
+
+  // Render dashboard grid
+  const renderDashboard = () => (
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <div className="header-subtitle">
+          Multi-Scale Drug Discovery
+          <svg viewBox="0 0 24 24">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+        <h2>Innovative Solutions for Biological Networks</h2>
+        <p>Explore biological networks from molecular to system-level emergent properties</p>
+      </div>
+      
+      <div className="tiles-grid">
+        {VISUALIZATION_TILES.map(tile => (
+          <div
+            key={tile.id}
+            className={`dashboard-tile ${tile.status} ${(tile.status === 'active' || tile.status === 'preview') ? 'clickable' : ''}`}
+            onClick={() => handleTileClick(tile.id)}
+          >
+            <div className="tile-content">
+              <div className="tile-icon">
+                {/* Minimal black/white icons */}
+                {tile.id === 'network' && '⚬'}
+                {tile.id === 'heatmap' && '▦'}
+                {tile.id === 'sankey' && '⟶'}
+                {tile.id === 'radar' && '◈'}
+                {tile.id === 'animation' && '◐'}
+                {tile.id === 'ensemble' && '▬'}
+                {tile.id === 'drugdesign' && '◯'}
+                {tile.id === 'dose3d' && '△'}
+                {tile.id === 'featurespace' && '◇'}
+              </div>
+              <h4>{tile.title}</h4>
+              <p>{tile.description}</p>
+              <div className={`tile-status ${tile.status}`}>
+                {tile.status === 'active' && 'Explore Now'}
+                {tile.status === 'preview' && 'Preview'}
+                {tile.status === 'coming-soon' && 'Coming Soon'}
+              </div>
             </div>
           </div>
-        </div>
+        ))}
       </div>
+    </div>
+  );
 
+  // Render controls (only for network view)
+  const renderControls = () => {
+    if (currentView !== 'network') return null;
+    
+    return (
       <div className="controls-container">
         <div className="controls-content">
           {/* Natural Language Query */}
@@ -296,11 +430,7 @@ function App() {
               </div>
 
               
-              {selectedDrugs.size > 1 && (
-                <div style={{ marginTop: '8px', fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>
-                  💡 Each drug shows as a unique colored ring around affected nodes
-                </div>
-              )}
+
             </div>
           )}
 
@@ -336,66 +466,206 @@ function App() {
           </div>
         </div>
       </div>
-      
-      <div className="app-content">
-        <div className="visualization-container-fullwidth">
-          {filteredData.nodes.length > 0 && (
-            <PathwayVisualization
-              baselineData={filteredData}
-              individualDrugData={drugPerturbedData}
-              width={dimensions.width}
-              height={dimensions.height}
-              visualizationMode={treatmentMode === 'drug' ? VisualizationMode.PERTURBED : VisualizationMode.BASELINE}
-              visibleNodeTypes={visibleNodeTypes}
+    );
+  };
+
+  // Render current visualization
+  const renderCurrentVisualization = () => {
+    switch (currentView) {
+      case 'dashboard':
+        return renderDashboard();
+        
+      case 'network':
+        return (
+          <div className="visualization-container-fullwidth">
+            {filteredData.nodes.length > 0 && (
+              <PathwayVisualization
+                baselineData={filteredData}
+                individualDrugData={drugPerturbedData}
+                width={dimensions.width}
+                height={dimensions.height}
+                visualizationMode={treatmentMode === 'drug' ? VisualizationMode.PERTURBED : VisualizationMode.BASELINE}
+                visibleNodeTypes={visibleNodeTypes}
+                selectedDrugs={selectedDrugs}
+                isDarkMode={isDarkMode}
+              />
+            )}
+            
+            {/* Info button for user instructions */}
+            <button 
+              className="info-button"
+              onClick={() => setShowInfoPopup(!showInfoPopup)}
+              title="Show network instructions"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
+                <path d="M12 16v-4"/>
+                <path d="M12 8h.01"/>
+              </svg>
+            </button>
+            
+            {/* Info popup */}
+            {showInfoPopup && (
+              <div className="info-popup">
+                <div className="info-popup-content">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <h4 style={{ margin: 0, color: 'var(--accent-primary)' }}>Network Instructions</h4>
+                    <button
+                      onClick={() => setShowInfoPopup(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-primary)',
+                        fontSize: '16px',
+                        cursor: 'pointer',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        opacity: 0.7
+                      }}
+                      onMouseEnter={(e) => (e.target as HTMLButtonElement).style.opacity = '1'}
+                      onMouseLeave={(e) => (e.target as HTMLButtonElement).style.opacity = '0.7'}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p style={{ margin: '8px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    Click any node to highlight its pathway network
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'heatmap':
+        return (
+          <div className="visualization-container-fullwidth">
+            <HierarchicalNetwork 
+              data={baselineData}
+              drugData={drugPerturbedData}
               selectedDrugs={selectedDrugs}
               isDarkMode={isDarkMode}
             />
-          )}
-          
-          {/* Info button for user instructions */}
-          <button 
-            className="info-button"
-            onClick={() => setShowInfoPopup(!showInfoPopup)}
-            title="Show network instructions"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
-              <path d="M12 16v-4"/>
-              <path d="M12 8h.01"/>
-            </svg>
-          </button>
-          
-          {/* Info popup */}
-          {showInfoPopup && (
-            <div className="info-popup">
-              <div className="info-popup-content">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h4 style={{ margin: 0, color: 'var(--accent-primary)' }}>Network Instructions</h4>
-                  <button
-                    onClick={() => setShowInfoPopup(false)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-primary)',
-                      fontSize: '16px',
-                      cursor: 'pointer',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      opacity: 0.7
-                    }}
-                    onMouseEnter={(e) => (e.target as HTMLButtonElement).style.opacity = '1'}
-                    onMouseLeave={(e) => (e.target as HTMLButtonElement).style.opacity = '0.7'}
-                  >
-                    ✕
-                  </button>
-                </div>
-                <p style={{ margin: '8px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  Click any node to highlight its pathway network
-                </p>
-              </div>
+          </div>
+        );
+
+      case 'sankey':
+        return (
+          <div className="visualization-container-fullwidth">
+            <SankeyFlowDiagram 
+              data={baselineData}
+              drugData={drugPerturbedData}
+              selectedDrugs={selectedDrugs}
+              isDarkMode={isDarkMode}
+            />
+          </div>
+        );
+
+      case 'radar':
+        return (
+          <div className="visualization-container-fullwidth">
+            <RadarChart 
+              data={baselineData}
+              drugData={drugPerturbedData}
+              selectedDrugs={selectedDrugs}
+              isDarkMode={isDarkMode}
+            />
+          </div>
+        );
+
+      case 'animation':
+        return (
+          <div className="visualization-container-fullwidth">
+            <PerturbationAnimation 
+              data={baselineData}
+              drugData={drugPerturbedData}
+              selectedDrugs={selectedDrugs}
+              isDarkMode={isDarkMode}
+            />
+          </div>
+        );
+
+      case 'ensemble':
+        return (
+          <div className="visualization-container-fullwidth">
+            <EnsembleFans 
+              data={baselineData}
+              drugData={drugPerturbedData}
+              selectedDrugs={selectedDrugs}
+              isDarkMode={isDarkMode}
+            />
+          </div>
+        );
+
+      case 'dose3d':
+        return (
+          <div className="visualization-container-fullwidth">
+            <DoseResponse3D 
+              data={baselineData}
+              drugData={drugPerturbedData}
+              selectedDrugs={selectedDrugs}
+              isDarkMode={isDarkMode}
+            />
+          </div>
+        );
+
+      case 'drugdesign':
+      case 'featurespace':
+      default:
+        return (
+          <div className="visualization-container-fullwidth">
+            <div className="coming-soon-message">
+              <h3>🚧 Coming Soon</h3>
+              <p>This visualization is under development.</p>
+              <button 
+                className="back-to-dashboard"
+                onClick={() => setCurrentView('dashboard')}
+              >
+                ← Back to Dashboard
+              </button>
             </div>
-          )}
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="app">
+      <div className="app-header">
+        <div className="header-content">
+          <div className="header-left">
+            <h1>GAIA</h1>
+          </div>
+          <div className="header-center">
+            {currentView !== 'dashboard' && (
+              <button 
+                className="back-to-dashboard-btn"
+                onClick={() => setCurrentView('dashboard')}
+              >
+                ← Dashboard
+              </button>
+            )}
+          </div>
+          <div className="header-right">
+            <div className="header-nav">
+              <button 
+                className="theme-toggle"
+                onClick={toggleTheme}
+                title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+              >
+              </button>
+              <span className="nav-item">Setup</span>
+              <span className="nav-item active">Dashboard</span>
+              <span className="nav-item">Sign-In</span>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {renderControls()}
+      
+      <div className="app-content">
+        {renderCurrentVisualization()}
       </div>
       
       {/* Static footer at bottom of page */}

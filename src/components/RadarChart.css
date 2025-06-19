@@ -1,0 +1,186 @@
+.radar-chart-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.radar-controls {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+}
+
+.control-info h3 {
+  margin: 0 0 8px 0;
+  color: var(--accent-primary);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.control-info p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.radar-wrapper {
+  flex: 1;
+  position: relative;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  overflow: hidden;
+}
+
+.radar-chart {
+  display: block;
+  background: var(--bg-secondary);
+}
+
+/* Main radar chart elements */
+.radar-area {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.radar-area:hover {
+  fill-opacity: 0.4 !important;
+}
+
+.radar-line {
+  transition: all 0.3s ease;
+}
+
+.radar-point {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.radar-point:hover {
+  r: 5 !important;
+  stroke-width: 2px !important;
+}
+
+/* Mini radar charts */
+.mini-radars .mini-radar-ketamine,
+.mini-radars .mini-radar-propofol,
+.mini-radars .mini-radar-etomidate,
+.mini-radars .mini-radar-dexmedetomidine {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.mini-radars path {
+  transition: all 0.3s ease;
+}
+
+.mini-radars text {
+  font-family: 'Arial', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Axis labels */
+.axis-label {
+  pointer-events: none;
+  font-family: 'Arial', sans-serif;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Titles */
+.radar-title {
+  font-family: 'Arial', sans-serif;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Tooltip */
+.radar-tooltip {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: 'Arial', sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .radar-chart-container {
+    padding: 10px;
+  }
+  
+  .radar-controls {
+    padding: 12px;
+  }
+  
+  .control-info h3 {
+    font-size: 16px;
+  }
+  
+  .control-info p {
+    font-size: 13px;
+  }
+  
+  .radar-chart {
+    height: 400px;
+  }
+  
+  .axis-label {
+    font-size: 9px;
+  }
+
+  /* Stack layout on mobile */
+  .main-radar {
+    transform: translate(50%, 30%) !important;
+  }
+  
+  .mini-radars {
+    transform: translate(0, 60%) !important;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .radar-line {
+    stroke-width: 3px !important;
+  }
+  
+  .radar-point {
+    stroke-width: 2px !important;
+  }
+  
+  .radar-controls {
+    border-width: 2px;
+    background: var(--bg-primary);
+  }
+  
+  .radar-wrapper {
+    border-width: 2px;
+    background: var(--bg-primary);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .radar-area,
+  .radar-line,
+  .radar-point,
+  .mini-radars path {
+    transition: none !important;
+  }
+} 

@@ -1,0 +1,228 @@
+.hierarchical-network-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.hierarchical-controls {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.control-info h3 {
+  color: var(--accent-primary);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.control-info p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.hierarchical-wrapper {
+  flex: 1;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.hierarchical-network {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--bg-secondary);
+}
+
+.hierarchy-legend {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 12px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--border-primary);
+}
+
+.legend-item span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.condition-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  padding: 4px;
+  backdrop-filter: blur(10px);
+}
+
+.condition-button {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.condition-button:hover {
+  color: var(--text-primary);
+  background: var(--accent-primary);
+}
+
+.condition-button.active {
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  font-weight: 600;
+}
+
+.stats-overlay {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 12px;
+  backdrop-filter: blur(10px);
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.stats-overlay .stat-line {
+  margin: 2px 0;
+}
+
+.webgl-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Hierarchical level colors */
+.level-molecular { color: var(--color-transcripts); }
+.level-cellular { color: var(--color-proteins); }
+.level-tissue { color: var(--color-metabolites); }
+.level-organ { color: var(--color-coral); }
+.level-system { color: var(--accent-primary); }
+
+/* Loading state */
+.hierarchical-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.hierarchical-loading::after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-primary);
+  border-top: 2px solid var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-left: 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .hierarchical-network-container {
+    padding: 10px;
+  }
+
+  .hierarchical-controls {
+    padding: 12px;
+  }
+
+  .control-info h3 {
+    font-size: 16px;
+  }
+
+  .control-info p {
+    font-size: 13px;
+  }
+
+  .hierarchy-legend {
+    position: relative;
+    margin-bottom: 16px;
+  }
+
+  .condition-toggle {
+    position: relative;
+    margin-bottom: 16px;
+  }
+
+  .stats-overlay {
+    position: relative;
+    margin-top: 16px;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .hierarchical-controls,
+  .hierarchical-wrapper {
+    background: var(--bg-primary);
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .condition-button {
+    transition: none !important;
+  }
+} 
