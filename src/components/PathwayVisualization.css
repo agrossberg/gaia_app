@@ -1,0 +1,358 @@
+.pathway-visualization {
+  position: relative;
+  background: var(--bg-primary);
+  border-radius: 12px;
+  overflow: auto;
+  border: 1px solid var(--border-primary);
+  width: 100%;
+  height: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-primary) var(--bg-secondary);
+}
+
+/* Only add shadow in dark mode */
+body.dark-mode .pathway-visualization {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.pathway-visualization::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.pathway-visualization::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.pathway-visualization::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.pathway-visualization::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+  background-clip: content-box;
+}
+
+.pathway-visualization::-webkit-scrollbar-corner {
+  background: var(--bg-secondary);
+}
+
+.pathway-svg {
+  background: var(--bg-primary);
+  display: block;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.pathway-node {
+  transition: all 0.2s ease;
+  filter: drop-shadow(0 0 6px rgba(255, 251, 230, 0.8)) drop-shadow(0 0 12px rgba(255, 251, 230, 0.4));
+  cursor: pointer;
+}
+
+.pathway-node:hover {
+  filter: drop-shadow(0 0 10px rgba(255, 251, 230, 1)) drop-shadow(0 0 20px rgba(255, 251, 230, 0.6));
+}
+
+.pathway-link {
+  transition: all 0.2s ease;
+}
+
+.pathway-label {
+  font-family: 'Arial', sans-serif;
+  font-weight: 500;
+  text-shadow: 1px 1px 3px var(--bg-primary);
+  transition: all 0.2s ease;
+  fill: var(--text-primary);
+}
+
+.mode-indicator {
+  background: var(--accent-primary);
+  backdrop-filter: blur(10px);
+  padding: 10px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--accent-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: inline-block;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 10px var(--accent-primary);
+}
+
+.node-info {
+  background: var(--bg-secondary);
+  backdrop-filter: blur(10px);
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px var(--bg-primary);
+  min-width: 250px;
+  max-width: 350px;
+  border: 1px solid var(--border-primary);
+  animation: slideIn 0.3s ease-out;
+  user-select: none; /* Prevent text selection during drag */
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.node-info h3 {
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
+  border-bottom: 2px solid var(--accent-primary);
+  padding-bottom: 6px;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 50%, var(--color-coral) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.node-info p {
+  margin: 8px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.node-info strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.fold-change {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.fold-change.upregulated {
+  background: linear-gradient(135deg, var(--color-olive), var(--color-green-dark));
+  color: var(--text-primary);
+  border: 1px solid var(--color-olive);
+}
+
+.fold-change.downregulated {
+  background: linear-gradient(135deg, var(--color-pink), var(--color-coral));
+  color: var(--text-primary);
+  border: 1px solid var(--color-coral);
+}
+
+.fold-change.unchanged {
+  background: linear-gradient(135deg, var(--color-purple), var(--color-blue-light));
+  color: var(--text-primary);
+  border: 1px solid var(--color-purple);
+}
+
+.perturbation-target {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  border: 1px solid var(--accent-primary);
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* Enhanced visual effects for different visualization modes */
+.pathway-visualization[data-mode="comparison"] .pathway-node {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
+}
+
+.pathway-visualization[data-mode="perturbed"] .pathway-node[data-perturbed="true"] {
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+}
+
+/* Drug effect animations */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes glow {
+  0% {
+    filter: drop-shadow(0 0 5px currentColor);
+  }
+  50% {
+    filter: drop-shadow(0 0 20px currentColor) drop-shadow(0 0 30px currentColor);
+  }
+  100% {
+    filter: drop-shadow(0 0 5px currentColor);
+  }
+}
+
+/* Drug effect indicators */
+.drug-effect-indicator {
+  font-family: 'Arial', sans-serif;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Enhanced drug effects panels */
+.drug-effects-legend {
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(15px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  animation: slideInLeft 0.5s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Enhanced mode indicator for drug mode */
+.mode-indicator.drug-active {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.2));
+  border: 2px solid rgba(255, 215, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+  animation: pulseGlow 3s infinite;
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 6px 30px rgba(255, 215, 0, 0.5);
+  }
+  100% {
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+  }
+}
+
+/* Drug effect strength indicators */
+.effect-strength-strong {
+  animation: pulse 1.5s infinite;
+}
+
+.effect-strength-moderate {
+  animation: glow 2s infinite;
+}
+
+.effect-strength-minimal {
+  opacity: 0.9;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .mode-indicator {
+    position: relative;
+    top: auto;
+    left: auto;
+    margin: 8px;
+    font-size: 12px;
+    padding: 8px 16px;
+  }
+  
+  .node-info {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin: 16px;
+    width: calc(100% - 32px);
+    min-width: auto;
+  }
+  
+  .node-info h3 {
+    font-size: 16px;
+  }
+  
+  .node-info p {
+    font-size: 12px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .pathway-node {
+    stroke-width: 3px !important;
+  }
+  
+  .pathway-link {
+    stroke-width: 2px !important;
+  }
+  
+  .mode-indicator,
+  .node-info {
+    border-width: 2px;
+    box-shadow: none;
+    background: black;
+    border-color: white;
+  }
+  
+  .pathway-label {
+    fill: white !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 1);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .pathway-node,
+  .pathway-link,
+  .pathway-label,
+  .mode-indicator,
+  .node-info,
+  .fold-change,
+  .perturbation-target {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .node-info {
+    animation: none;
+  }
+  
+  .pathway-node:hover {
+    transform: none;
+  }
+} 

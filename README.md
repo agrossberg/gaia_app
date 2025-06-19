@@ -1,46 +1,196 @@
-# Getting Started with Create React App
+# Biological Pathway Constellations
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An interactive web visualization tool for exploring biological pathways and multi-omics data relationships, inspired by network constellation visualizations. Built with React and D3.js.
 
-## Available Scripts
+![Biological Pathway Visualization](https://via.placeholder.com/800x400/667eea/ffffff?text=Biological+Pathway+Constellations)
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+🧬 **Multi-Omics Integration**: Visualize relationships between mRNA transcripts, proteins, metabolites, and lipids
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+🌐 **Interactive Network**: Drag nodes, zoom, pan, and click to explore pathway connections
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+🎯 **Smart Filtering**: Filter by specific biological pathways or omics types
 
-### `npm test`
+🎨 **Dynamic Visualization**: 
+- Node size represents statistical significance
+- Color intensity shows expression levels
+- Link thickness indicates interaction strength
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+📱 **Responsive Design**: Works on desktop, tablet, and mobile devices
 
-### `npm run build`
+## Technology Stack
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- **React** with TypeScript for the UI framework
+- **D3.js** for data visualization and force simulations
+- **Chroma.js** for beautiful color scaling
+- **CSS3** with modern styling including glassmorphism effects
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Getting Started
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Prerequisites
 
-### `npm run eject`
+- Node.js (v14 or higher)
+- npm or yarn package manager
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+### Installation
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+1. Clone the repository:
+```bash
+git clone <your-repo-url>
+cd biological-pathways-viz
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+3. Start the development server:
+```bash
+npm start
+```
 
-## Learn More
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Data Structure
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+The application uses simulated biological pathway data with the following structure:
+
+### Node Types (Omics)
+- **mRNA transcripts**: Gene expression data
+- **Proteins**: Protein abundance measurements  
+- **Metabolites**: Small molecule concentrations
+- **Lipids**: Lipid species measurements
+
+### Pathways Included
+- Glucose Metabolism
+- Lipid Metabolism
+- Protein Synthesis
+- Signal Transduction
+- Cell Cycle
+- Apoptosis
+- DNA Repair
+- Immune Response
+
+### Interaction Types
+- **Regulation**: Transcriptional/translational control
+- **Interaction**: Protein-protein interactions
+- **Conversion**: Metabolic transformations
+- **Transport**: Molecular transport processes
+
+## User Interface
+
+### Control Panel
+- **Pathway Filter**: Focus on specific biological pathways
+- **Omics Filter**: Show only certain data types
+- **Legend**: Color coding and visualization guide
+- **Instructions**: Interactive help for navigation
+
+### Visualization Canvas
+- **Force-directed network**: Nodes automatically arrange based on connections
+- **Zoom & Pan**: Mouse wheel and drag for navigation
+- **Node Selection**: Click nodes to view detailed information
+- **Drag Interaction**: Manually position nodes
+
+## Customization
+
+### Adding New Data
+To use your own biological data, modify the `src/data/mockData.ts` file:
+
+```typescript
+// Add your pathway data
+const YOUR_PATHWAYS = ['Custom Pathway 1', 'Custom Pathway 2'];
+
+// Modify the generateNodes() function to use your data
+const generateNodes = (): BiologicalNode[] => {
+  // Your data generation logic here
+};
+```
+
+### Styling
+- Main styles: `src/App.css`
+- Visualization styles: `src/components/PathwayVisualization.css`
+- Control panel styles: `src/components/ControlPanel.css`
+
+### Color Schemes
+Modify the color schemes in `PathwayVisualization.tsx`:
+
+```typescript
+const omicsColors = {
+  [OmicsType.mRNA]: chroma.scale(['#yourStartColor', '#yourEndColor']),
+  // ... other omics types
+};
+```
+
+## Architecture
+
+### Component Structure
+```
+src/
+├── components/
+│   ├── PathwayVisualization.tsx    # Main D3.js visualization
+│   ├── ControlPanel.tsx            # UI controls and filters
+│   └── *.css                       # Component styles
+├── data/
+│   └── mockData.ts                 # Data generation utilities
+├── types/
+│   └── index.ts                    # TypeScript type definitions
+└── App.tsx                         # Main application component
+```
+
+### Data Flow
+1. Mock data generation (`mockData.ts`)
+2. State management in main App component
+3. Props passing to visualization and control components
+4. D3.js force simulation and rendering
+5. User interactions trigger state updates
+
+## Performance Considerations
+
+- **Efficient Rendering**: Uses React.memo and useCallback for optimization
+- **D3.js Integration**: Separates D3 calculations from React rendering
+- **Responsive Design**: Adapts to different screen sizes
+- **Memory Management**: Proper cleanup of D3 simulations
+
+## Browser Support
+
+- Chrome 80+
+- Firefox 75+
+- Safari 13+
+- Edge 80+
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Future Enhancements
+
+- [ ] Real data integration with biological databases
+- [ ] Export functionality (PNG, SVG, PDF)
+- [ ] Animation of temporal pathway changes
+- [ ] Advanced statistical analysis tools
+- [ ] Collaborative features for data sharing
+- [ ] Integration with popular bioinformatics tools
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Inspired by network visualization techniques in systems biology
+- Built with modern web technologies for interactive data exploration
+- Color palettes designed for accessibility and scientific clarity
+
+## Contact
+
+For questions, suggestions, or collaborations, please open an issue in the repository.
+
+---
+
+**Note**: This application uses simulated biological data for demonstration purposes. For production use with real biological data, please ensure proper data validation and scientific accuracy.
