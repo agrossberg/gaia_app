@@ -29,7 +29,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
   visualizationMode,
   visibleNodeTypes,
   selectedDrugs,
-  isDarkMode = true
+  isDarkMode = false
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -360,7 +360,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       .attr('dominant-baseline', 'middle')
       .style('font-size', '18px')
       .style('font-weight', 'bold')
-      .style('fill', textColor)
+      .style('fill', textColor + ' !important')
       .text(d => d);
 
     // Add category labels at the top - positioned much closer to the left edge for better alignment
@@ -375,7 +375,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       .attr('dominant-baseline', 'middle')
       .style('font-size', '16px')
       .style('font-weight', 'bold')
-      .style('fill', textColor)
+      .style('fill', textColor + ' !important')
       .text(d => d);
 
     // Theme-aware link color using CSS variable
@@ -568,7 +568,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     return () => {
       console.log('Static layout cleanup');
     };
-  }, [baselineData, individualDrugData, selectedPathway, selectedOmicsType, selectedDrug, visualizationMode, width, height, filterData, getNodeRadius, getNodeColor, getNodeOpacity, getNodeStroke, getNodeVisualEffects, getDrugEffectIndicator]);
+  }, [baselineData, individualDrugData, selectedPathway, selectedOmicsType, selectedDrug, visualizationMode, width, height, isDarkMode, filterData, getNodeRadius, getNodeColor, getNodeOpacity, getNodeStroke, getNodeVisualEffects, getDrugEffectIndicator]);
 
   // Separate useEffect to handle color updates when selectedNode changes
   useEffect(() => {
@@ -594,6 +594,14 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     }
     
     console.log('Updating colors for selectedNode:', selectedNode);
+    
+    // Update text colors for theme changes
+    const textColor = isDarkMode ? '#ffffff' : '#002B32';
+    const timeLabelsSelection = svg.selectAll('.time-label');
+    const categoryLabelsSelection = svg.selectAll('.category-label');
+    
+    timeLabelsSelection.style('fill', textColor + ' !important');
+    categoryLabelsSelection.style('fill', textColor + ' !important');
     
     if (selectedNode) {
       // Get the filtered data (what's currently displayed) to find causal chain nodes
@@ -696,7 +704,6 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       });
       
       // Update category labels - dim those not involved in the causal chain
-      const categoryLabelsSelection = svg.selectAll('.category-label');
       categoryLabelsSelection.style('opacity', function(d: any) {
         if (involvedCategories.has(d)) {
           return 1; // Full opacity for involved categories
@@ -739,13 +746,12 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
         });
       
       // Reset category labels to full opacity
-      const categoryLabelsSelection = svg.selectAll('.category-label');
       categoryLabelsSelection.style('opacity', 1);
       
       console.log('Applied default styles to nodes, links, and labels');
     }
     console.log('=== END COLOR UPDATE EFFECT ===');
-  }, [selectedNode, baselineData, individualDrugData, visualizationMode, filterData, getNodeColor, getNodeOpacity, getNodeStroke, getNodeVisualEffects, getDrugEffectIndicator]);
+  }, [selectedNode, baselineData, individualDrugData, visualizationMode, isDarkMode, filterData, getNodeColor, getNodeOpacity, getNodeStroke, getNodeVisualEffects, getDrugEffectIndicator]);
 
   const currentNode = selectedNode ? getCurrentData().nodes.find(n => n.id === selectedNode) : null;
   const baselineNode = selectedNode && visualizationMode === VisualizationMode.COMPARISON ? 
@@ -946,7 +952,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
             <p className="perturbation-target">🎯 Drug Target</p>
           )}
           
-          <div style={{ marginTop: '12px', fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>
+          <div style={{ marginTop: '12px', fontSize: '11px', color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,43,50,0.7)' }}>
             🖱️ Click nodes to highlight pathways • ⭐ Click empty space to deselect<br/>
             📏 Node size = confidence in causal chain importance<br/>
             {visualizationMode === VisualizationMode.PERTURBED && (

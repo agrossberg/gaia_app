@@ -1,19 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PathwayVisualization from './components/PathwayVisualization';
 import HierarchicalNetwork3D from './components/HierarchicalNetwork3D';
-
 import SankeyFlowDiagram from './components/SankeyFlowDiagram';
 import RadarChart from './components/RadarChart';
-import PerturbationAnimation from './components/PerturbationAnimation';
-import EnsembleFans from './components/EnsembleFans';
-import DoseResponse3D from './components/DoseResponse3D';
 import { generateMockData, applyDrugPerturbation, DRUG_TREATMENTS } from './data/mockData';
 import { PathwayData, VisualizationMode, OmicsType, BiologicalNode } from './types';
 import { NaturalLanguageQueryParser, QueryResult, EXAMPLE_QUERIES } from './utils/naturalLanguageQuery';
 import './App.css';
 
 // Dashboard view types
-type DashboardView = 'dashboard' | 'network' | 'sankey' | 'radar' | 'animation' | 'ensemble' | 'drugdesign' | 'dose3d' | 'featurespace' | 'network3d';
+type DashboardView = 'dashboard' | 'network' | 'sankey' | 'radar' | 'drugdesign' | 'featurespace' | 'network3d';
 
 // Visualization tile configuration
 interface VisualizationTile {
@@ -59,36 +55,12 @@ const VISUALIZATION_TILES: VisualizationTile[] = [
     icon: '🕸️'
   },
   {
-    id: 'animation',
-    title: 'Perturbation Animation',
-    description: 'Animated propagation of drug effects through biological networks',
-    category: 'molecular',
-    status: 'preview',
-    icon: '⚡'
-  },
-  {
-    id: 'ensemble',
-    title: 'Prediction Fans',
-    description: 'Uncertainty visualization with ensemble prediction confidence bands',
-    category: 'system',
-    status: 'preview',
-    icon: '📊'
-  },
-  {
     id: 'drugdesign',
     title: 'Drug Design Explorer',
     description: 'Interactive parameter space for novel drug design and optimization',
     category: 'design',
     status: 'coming-soon',
     icon: '🧪'
-  },
-  {
-    id: 'dose3d',
-    title: '3D Dose Response',
-    description: '3D surface plots showing dose-response relationships across conditions',
-    category: 'system',
-    status: 'preview',
-    icon: '📈'
   },
   {
     id: 'featurespace',
@@ -357,13 +329,13 @@ function App() {
     <div className="dashboard-container">
       <div className="dashboard-header">
         <div className="header-subtitle">
-          Multi-Scale Drug Discovery
+          Data exploration, hypothesis generation, and drug discovery
           <svg viewBox="0 0 24 24">
             <path d="M5 12h14M12 5l7 7-7 7"/>
           </svg>
         </div>
-        <h2>Innovative Solutions for Biological Networks</h2>
-        <p>Explore biological networks from molecular to system-level emergent properties</p>
+        <h2>Exploring the How Behind the What</h2>
+        <p>An AI Ecosystem for Exploration of Complex Biological Systems to Accelerate Our Understanding of Anesthetic Drugs and their Mechanism</p>
       </div>
       
       <div className="tiles-grid">
@@ -380,10 +352,7 @@ function App() {
                 {tile.id === 'network3d' && '◉'}
                 {tile.id === 'sankey' && '⟶'}
                 {tile.id === 'radar' && '◈'}
-                {tile.id === 'animation' && '◐'}
-                {tile.id === 'ensemble' && '▬'}
                 {tile.id === 'drugdesign' && '◯'}
-                {tile.id === 'dose3d' && '△'}
                 {tile.id === 'featurespace' && '◇'}
               </div>
               <h4>{tile.title}</h4>
@@ -724,42 +693,6 @@ function App() {
         return (
           <div className="visualization-container-fullwidth">
             <RadarChart 
-              data={baselineData}
-              drugData={drugPerturbedData}
-              selectedDrugs={selectedDrugs}
-              isDarkMode={isDarkMode}
-            />
-          </div>
-        );
-
-      case 'animation':
-        return (
-          <div className="visualization-container-fullwidth">
-            <PerturbationAnimation 
-              data={baselineData}
-              drugData={drugPerturbedData}
-              selectedDrugs={selectedDrugs}
-              isDarkMode={isDarkMode}
-            />
-          </div>
-        );
-
-      case 'ensemble':
-        return (
-          <div className="visualization-container-fullwidth">
-            <EnsembleFans 
-              data={baselineData}
-              drugData={drugPerturbedData}
-              selectedDrugs={selectedDrugs}
-              isDarkMode={isDarkMode}
-            />
-          </div>
-        );
-
-      case 'dose3d':
-        return (
-          <div className="visualization-container-fullwidth">
-            <DoseResponse3D 
               data={baselineData}
               drugData={drugPerturbedData}
               selectedDrugs={selectedDrugs}

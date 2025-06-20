@@ -28,50 +28,65 @@ const RadarChart: React.FC<RadarChartProps> = ({
 
   // Process data for radar chart
   const radarData = useMemo(() => {
+    // Use the same categories as the pathway visualization
     const axes = [
-      'Inflammation',
-      'Antioxidant Defense', 
-      'Circadian Clock',
-      'ROS Production',
-      'DNA Damage Response',
-      'Protein Folding Stress'
+      'Energy Metabolism',
+      'Immune Response',
+      'Oxidative Stress', 
+      'Circadian Rhythm',
+      'Blood Pressure',
+      'Heart Rate',
+      'Temperature Regulation'
     ];
 
     const drugProfiles: { [drugId: string]: RadarDataPoint[] } = {};
 
-    // Generate demo drug profiles with distinct characteristics
+    // Generate demo drug profiles with distinct characteristics based on pathway categories
     const demoDrugProfiles = {
       'ketamine': {
-        'Inflammation': 0.95,
-        'Antioxidant Defense': 0.4,
-        'Circadian Clock': 0.3,
-        'ROS Production': 1.2,
-        'DNA Damage Response': 0.8,
-        'Protein Folding Stress': 0.6
+        'Energy Metabolism': 0.8,
+        'Immune Response': 1.2,
+        'Oxidative Stress': 1.4,
+        'Circadian Rhythm': 0.6,
+        'Blood Pressure': 1.1,
+        'Heart Rate': 1.3,
+        'Temperature Regulation': 0.9
       },
       'propofol': {
-        'Inflammation': 0.2,
-        'Antioxidant Defense': 1.1,
-        'Circadian Clock': 0.9,
-        'ROS Production': 0.3,
-        'DNA Damage Response': 0.4,
-        'Protein Folding Stress': 0.7
+        'Energy Metabolism': 0.7,
+        'Immune Response': 0.4,
+        'Oxidative Stress': 0.3,
+        'Circadian Rhythm': 1.1,
+        'Blood Pressure': 0.8,
+        'Heart Rate': 0.6,
+        'Temperature Regulation': 1.2
       },
       'etomidate': {
-        'Inflammation': 0.6,
-        'Antioxidant Defense': 0.7,
-        'Circadian Clock': 1.3,
-        'ROS Production': 0.5,
-        'DNA Damage Response': 1.1,
-        'Protein Folding Stress': 1.2
+        'Energy Metabolism': 1.1,
+        'Immune Response': 0.9,
+        'Oxidative Stress': 0.8,
+        'Circadian Rhythm': 1.3,
+        'Blood Pressure': 0.5,
+        'Heart Rate': 0.7,
+        'Temperature Regulation': 0.4
       },
-      'dexmedetomidine': {
-        'Inflammation': 0.7,
-        'Antioxidant Defense': 0.9,
-        'Circadian Clock': 0.6,
-        'ROS Production': 0.4,
-        'DNA Damage Response': 0.5,
-        'Protein Folding Stress': 0.3
+      'novel1': {
+        'Energy Metabolism': 0.9,
+        'Immune Response': 1.0,
+        'Oxidative Stress': 0.7,
+        'Circadian Rhythm': 0.8,
+        'Blood Pressure': 1.2,
+        'Heart Rate': 0.9,
+        'Temperature Regulation': 1.1
+      },
+      'novel2': {
+        'Energy Metabolism': 1.3,
+        'Immune Response': 0.6,
+        'Oxidative Stress': 1.1,
+        'Circadian Rhythm': 0.5,
+        'Blood Pressure': 0.9,
+        'Heart Rate': 1.0,
+        'Temperature Regulation': 0.7
       }
     };
     
@@ -97,78 +112,8 @@ const RadarChart: React.FC<RadarChartProps> = ({
 
   // Create individual mini radar charts for each drug
   const createMiniRadar = (drugId: string, drugProfile: RadarDataPoint[], x: number, y: number, size: number) => {
-    const g = d3.select(svgRef.current!)
-      .select('.mini-radars')
-      .append('g')
-      .attr('class', `mini-radar-${drugId}`)
-      .attr('transform', `translate(${x}, ${y})`);
-
-    const axes = drugProfile.map(d => d.axis);
-    const angleSlice = (Math.PI * 2) / axes.length;
-    const radius = size / 2;
-
-    // Create radial scale for mini chart
-    const rScale = d3.scaleLinear()
-      .domain([0, 1.5])
-      .range([0, radius]);
-
-    // Background circle
-    g.append('circle')
-      .attr('r', radius)
-      .attr('fill', 'none')
-      .attr('stroke', isDarkMode ? '#ffffff20' : '#00000020')
-      .attr('stroke-width', 1);
-
-    // Axis lines (simplified)
-    axes.forEach((axis, i) => {
-      const angle = angleSlice * i - Math.PI / 2;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-
-      g.append('line')
-        .attr('x1', 0)
-        .attr('y1', 0)
-        .attr('x2', x)
-        .attr('y2', y)
-        .attr('stroke', isDarkMode ? '#ffffff15' : '#00000015')
-        .attr('stroke-width', 0.5);
-    });
-
-    // Drug color
-    const drugColors: { [key: string]: string } = {
-      'ketamine': '#FF6B6B',
-      'propofol': '#4ECDC4', 
-      'etomidate': '#45B7D1',
-      'dexmedetomidine': '#96CEB4'
-    };
-
-    const drugColor = drugColors[drugId] || '#888888';
-
-    // Create path for drug profile
-    const lineGenerator = d3.lineRadial<RadarDataPoint>()
-      .angle((d, i) => angleSlice * i)
-      .radius(d => rScale(d.value))
-      .curve(d3.curveLinearClosed);
-
-    // Filled area
-    g.append('path')
-      .datum(drugProfile)
-      .attr('d', lineGenerator)
-      .attr('fill', drugColor)
-      .attr('fill-opacity', 0.3)
-      .attr('stroke', drugColor)
-      .attr('stroke-width', 2);
-
-    // Drug name label
-    g.append('text')
-      .attr('y', radius + 20)
-      .attr('text-anchor', 'middle')
-      .attr('fill', isDarkMode ? '#ffffff' : '#000000')
-      .attr('font-size', '12px')
-      .attr('font-weight', '600')
-      .text(drugId.toUpperCase());
-
-    return g;
+    // This function is no longer used - removing individual profiles
+    return null;
   };
 
   useEffect(() => {
@@ -180,22 +125,14 @@ const RadarChart: React.FC<RadarChartProps> = ({
     const containerWidth = svgRef.current.clientWidth;
     const containerHeight = svgRef.current.clientHeight;
     
-    // Layout: Main chart on left, mini charts on right
-    const mainChartWidth = containerWidth * 0.6;
-    const sidebarWidth = containerWidth * 0.4;
-    const margin = { top: 40, right: 20, bottom: 40, left: 20 };
-    
-    const mainRadius = Math.min(mainChartWidth - margin.left - margin.right, containerHeight - margin.top - margin.bottom) / 2 - 40;
+    // Full width layout with sidebar for mini radars
+    const margin = { top: 60, right: 170, bottom: 60, left: 60 }; // Reduced right margin since legend is closer
+    const mainRadius = Math.min(containerWidth - margin.left - margin.right, containerHeight - margin.top - margin.bottom) / 2 - 80; // Reduced from -40 to -80 to make smaller
 
-    // Main chart group
+    // Centered main chart group (moved left to center with legend)
     const mainG = svg.append('g')
       .attr('class', 'main-radar')
-      .attr('transform', `translate(${mainChartWidth / 2}, ${containerHeight / 2})`);
-
-    // Mini charts container
-    const miniG = svg.append('g')
-      .attr('class', 'mini-radars')
-      .attr('transform', `translate(${mainChartWidth}, 0)`);
+      .attr('transform', `translate(${containerWidth / 2 - 50}, ${containerHeight / 2})`); // Moved left by 50px
 
     // Get axes from first drug
     const firstDrug = Object.keys(radarData)[0];
@@ -207,49 +144,60 @@ const RadarChart: React.FC<RadarChartProps> = ({
       .domain([0, 1.5])
       .range([0, mainRadius]);
 
-    // Background grid circles (minimal)
-    const levels = 3;
-    for (let i = 1; i <= levels; i++) {
-      mainG.append('circle')
-        .attr('r', mainRadius * i / levels)
-        .attr('fill', 'none')
-        .attr('stroke', isDarkMode ? '#ffffff15' : '#00000015')
-        .attr('stroke-width', 1);
-    }
+    // Removed background grid circles - keeping only axis lines
 
-    // Axis lines and labels
+    // Axis lines and labels with dotted lines and points at the end
     axes.forEach((axis, i) => {
       const angle = angleSlice * i - Math.PI / 2;
       const x = Math.cos(angle) * mainRadius;
       const y = Math.sin(angle) * mainRadius;
+      
+      // Extended axis line (goes beyond the data area)
+      const extendedRadius = mainRadius * 1.3; // Extend 30% beyond data area
+      const extendedX = Math.cos(angle) * extendedRadius;
+      const extendedY = Math.sin(angle) * extendedRadius;
 
-      // Axis line
+      // Dotted axis line (extends beyond data area)
       mainG.append('line')
         .attr('x1', 0)
         .attr('y1', 0)
-        .attr('x2', x)
-        .attr('y2', y)
+        .attr('x2', extendedX)
+        .attr('y2', extendedY)
         .attr('stroke', isDarkMode ? '#ffffff25' : '#00000025')
-        .attr('stroke-width', 1);
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3,3'); // Dotted line
 
-      // Axis label
+      // Point at the end of each extended axis
+      mainG.append('circle')
+        .attr('cx', extendedX)
+        .attr('cy', extendedY)
+        .attr('r', 3)
+        .attr('fill', isDarkMode ? '#ffffff' : '#000000')
+        .attr('stroke', 'none');
+
+      // Axis label (positioned beyond the extended line)
+      const labelRadius = extendedRadius * 1.15; // 15% beyond the extended line
+      const labelX = Math.cos(angle) * labelRadius;
+      const labelY = Math.sin(angle) * labelRadius;
+      
       mainG.append('text')
-        .attr('x', x * 1.2)
-        .attr('y', y * 1.2)
+        .attr('x', labelX)
+        .attr('y', labelY)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
         .attr('fill', isDarkMode ? '#ffffff' : '#000000')
-        .attr('font-size', '11px')
+        .attr('font-size', '12px')
         .attr('font-weight', '500')
         .text(axis);
     });
 
-    // Drug colors
+    // Use the same drug colors as pathway visualization
     const drugColors: { [key: string]: string } = {
-      'ketamine': '#FF6B6B',
-      'propofol': '#4ECDC4', 
-      'etomidate': '#45B7D1',
-      'dexmedetomidine': '#96CEB4'
+      'ketamine': '#FFBF00',    // User specified
+      'etomidate': '#40E0D0',   // User specified
+      'propofol': '#DE3163',    // User specified
+      'novel1': '#6495ED',      // User specified
+      'novel2': '#77B254'       // User specified
     };
 
     // Draw all drug profiles on main chart
@@ -259,99 +207,116 @@ const RadarChart: React.FC<RadarChartProps> = ({
       const lineGenerator = d3.lineRadial<RadarDataPoint>()
         .angle((d, i) => angleSlice * i)
         .radius(d => rScale(d.value))
-        .curve(d3.curveLinearClosed);
+        .curve(d3.curveCardinalClosed); // Changed to curved line
 
-      // Filled area with lower opacity
+      // Filled area with curved lines and no outline
       mainG.append('path')
         .datum(drugProfile)
         .attr('class', `radar-area radar-area-${drugId}`)
         .attr('d', lineGenerator)
         .attr('fill', drugColor)
-        .attr('fill-opacity', 0.15)
-        .attr('stroke', drugColor)
-        .attr('stroke-width', 2)
-        .attr('stroke-opacity', 0.8);
+        .attr('fill-opacity', isDarkMode ? 0.25 : 0.15) // Higher opacity in dark mode
+        .attr('stroke', 'none') // Removed outline
+        .attr('filter', isDarkMode ? `drop-shadow(0 0 8px ${drugColor})` : 'none'); // Glow effect in dark mode
 
-      // Data points
-      drugProfile.forEach((d, i) => {
-        const angle = angleSlice * i - Math.PI / 2;
-        const x = Math.cos(angle) * rScale(d.value);
-        const y = Math.sin(angle) * rScale(d.value);
-
-        mainG.append('circle')
-          .attr('class', `radar-point radar-point-${drugId}`)
-          .attr('cx', x)
-          .attr('cy', y)
-          .attr('r', 3)
-          .attr('fill', drugColor)
-          .attr('stroke', isDarkMode ? '#000000' : '#ffffff')
-          .attr('stroke-width', 1);
-      });
+      // Removed data points (dots) - keeping only the outline
     });
 
-    // Create mini radar charts in sidebar
-    const miniSize = 80;
-    const miniSpacing = 100;
-    const startY = 60;
+    // Add legend and mini radar charts on the right (moved much further left to center with plot)
+    const legendX = containerWidth / 2 + 400; // Position relative to center instead of right edge
+    const legendY = 60;
+    const miniRadarSize = 80;
+    const miniRadarSpacing = 100;
 
     Object.entries(radarData).forEach(([drugId, drugProfile], index) => {
-      const x = sidebarWidth / 2;
-      const y = startY + index * miniSpacing;
-      createMiniRadar(drugId, drugProfile, x, y, miniSize);
+      const drugColor = drugColors[drugId] || '#888888';
+      const y = legendY + index * miniRadarSpacing;
+
+      // Create mini radar chart
+      const miniRadarG = svg.append('g')
+        .attr('class', `mini-radar-${drugId}`)
+        .attr('transform', `translate(${legendX + miniRadarSize/2}, ${y + miniRadarSize/2})`);
+
+      // Mini radar axis lines (dotted) - no background circles
+      axes.forEach((axis, i) => {
+        const angle = angleSlice * i - Math.PI / 2;
+        const x = Math.cos(angle) * miniRadarSize/2;
+        const y = Math.sin(angle) * miniRadarSize/2;
+
+        miniRadarG.append('line')
+          .attr('x1', 0)
+          .attr('y1', 0)
+          .attr('x2', x)
+          .attr('y2', y)
+          .attr('stroke', isDarkMode ? '#ffffff20' : '#00000020')
+          .attr('stroke-width', 0.5)
+          .attr('stroke-dasharray', '2,2');
+
+        // Point at the end
+        miniRadarG.append('circle')
+          .attr('cx', x)
+          .attr('cy', y)
+          .attr('r', 1.5)
+          .attr('fill', isDarkMode ? '#ffffff' : '#000000')
+          .attr('stroke', 'none');
+      });
+
+      // Mini radar drug profile with curved lines and no outline
+      const miniLineGenerator = d3.lineRadial<RadarDataPoint>()
+        .angle((d, i) => angleSlice * i)
+        .radius(d => (miniRadarSize/2) * (d.value / 1.5))
+        .curve(d3.curveCardinalClosed); // Changed to curved line
+
+      miniRadarG.append('path')
+        .datum(drugProfile)
+        .attr('class', `mini-radar-area mini-radar-area-${drugId}`)
+        .attr('d', miniLineGenerator)
+        .attr('fill', drugColor)
+        .attr('fill-opacity', isDarkMode ? 0.5 : 0.3) // Higher opacity in dark mode
+        .attr('stroke', 'none') // Removed outline
+        .attr('filter', isDarkMode ? `drop-shadow(0 0 6px ${drugColor})` : 'none'); // Glow effect in dark mode
+
+      // Legend text
+      svg.append('text')
+        .attr('x', legendX + miniRadarSize + 10)
+        .attr('y', y + miniRadarSize/2)
+        .attr('text-anchor', 'start')
+        .attr('dominant-baseline', 'middle')
+        .attr('fill', isDarkMode ? '#ffffff' : '#000000')
+        .attr('font-size', '12px')
+        .attr('font-weight', '500')
+        .text(drugId.toUpperCase());
     });
 
-    // Add title
-    svg.append('text')
-      .attr('x', containerWidth / 2)
-      .attr('y', 25)
-      .attr('text-anchor', 'middle')
-      .attr('fill', isDarkMode ? '#ffffff' : '#000000')
-      .attr('font-size', '16px')
-      .attr('font-weight', '600')
-      .text('Drug Profile Comparison');
+    // Add hover interactions
+    svg.selectAll('.radar-area')
+      .on('mouseover', function(event, d) {
+        const className = (this as SVGElement).getAttribute('class');
+        const drugId = className?.split('-').pop();
+        
+        if (drugId) {
+          // Highlight main chart
+          svg.selectAll('.radar-area')
+            .attr('fill-opacity', isDarkMode ? 0.1 : 0.05);
+          
+          d3.select(this)
+            .attr('fill-opacity', isDarkMode ? 0.6 : 0.4);
 
-    // Add sidebar title
-    svg.append('text')
-      .attr('x', mainChartWidth + sidebarWidth / 2)
-      .attr('y', 25)
-      .attr('text-anchor', 'middle')
-      .attr('fill', isDarkMode ? '#ffffff' : '#000000')
-      .attr('font-size', '12px')
-      .attr('font-weight', '500')
-      .attr('opacity', 0.8)
-      .text('Individual Profiles');
-
-         // Add hover interactions
-     svg.selectAll('.radar-area')
-       .on('mouseover', function(event, d) {
-         const className = (this as SVGElement).getAttribute('class');
-         const drugId = className?.split('-').pop();
-         
-         if (drugId) {
-           // Highlight main chart
-           svg.selectAll('.radar-area')
-             .attr('fill-opacity', 0.05)
-             .attr('stroke-opacity', 0.3);
-           
-           d3.select(this)
-             .attr('fill-opacity', 0.3)
-             .attr('stroke-opacity', 1);
-
-           // Highlight corresponding mini chart
-           svg.selectAll(`.mini-radar-${drugId} path`)
-             .attr('fill-opacity', 0.6)
-             .attr('stroke-width', 3);
-         }
-       })
+          // Highlight corresponding mini radar
+          svg.selectAll('.mini-radar-area')
+            .attr('fill-opacity', isDarkMode ? 0.2 : 0.1);
+          
+          svg.select(`.mini-radar-area-${drugId}`)
+            .attr('fill-opacity', isDarkMode ? 0.8 : 0.6);
+        }
+      })
       .on('mouseout', function() {
         // Reset all opacities
         svg.selectAll('.radar-area')
-          .attr('fill-opacity', 0.15)
-          .attr('stroke-opacity', 0.8);
-
-        svg.selectAll('.mini-radars path')
-          .attr('fill-opacity', 0.3)
-          .attr('stroke-width', 2);
+          .attr('fill-opacity', isDarkMode ? 0.25 : 0.15);
+        
+        svg.selectAll('.mini-radar-area')
+          .attr('fill-opacity', isDarkMode ? 0.5 : 0.3);
       });
 
   }, [radarData, isDarkMode]);

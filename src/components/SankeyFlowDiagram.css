@@ -7,6 +7,7 @@
   color: var(--text-primary);
   padding: 20px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .sankey-controls {
@@ -37,16 +38,22 @@
   background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid var(--border-primary);
-  overflow: hidden;
+  overflow: auto;
+  min-height: 800px;
+  max-height: 900px;
+  padding: 20px;
 }
 
 .sankey-flow-diagram {
   display: block;
   background: var(--bg-secondary);
+  min-width: 1800px;
+  min-height: 1400px;
 }
 
 .sankey-nodes rect {
   transition: all 0.2s ease;
+  stroke-width: 1px;
 }
 
 .sankey-nodes rect:hover {
@@ -56,21 +63,55 @@
 
 .sankey-links path {
   transition: all 0.2s ease;
+  opacity: 0.7;
 }
 
 .sankey-links path:hover {
   opacity: 1 !important;
+  stroke-width: 2px !important;
 }
 
 .sankey-labels text {
   font-family: 'Arial', sans-serif;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
   pointer-events: none;
+  white-space: nowrap;
 }
 
 .sankey-title {
   font-family: 'Arial', sans-serif;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Collapse indicator styles */
+.collapse-indicator {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  stroke-width: 2px;
+}
+
+.collapse-indicator:hover {
+  stroke-width: 3px;
+}
+
+.collapse-symbol {
+  cursor: pointer;
+  font-family: 'Arial', sans-serif;
+  font-weight: bold;
+  pointer-events: all;
+}
+
+.collapse-symbol:hover {
+  font-size: 14px;
+}
+
+.node-group {
+  transition: all 0.2s ease;
+}
+
+.node-group:hover .node-rect {
+  stroke-width: 2px !important;
+  opacity: 1 !important;
 }
 
 .sankey-tooltip {
@@ -85,6 +126,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(10px);
   max-width: 250px;
+  z-index: 1000;
 }
 
 /* Level indicators */
@@ -111,6 +153,25 @@
   animation: flow-pulse 2s infinite;
 }
 
+/* Zoom and pan indicators */
+.zoom-instructions {
+  font-family: 'Arial', sans-serif;
+  opacity: 0.7;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Category labels and brackets */
+.category-label {
+  font-size: 18px !important;
+  font-weight: bold !important;
+  pointer-events: none;
+}
+
+.category-bracket {
+  stroke-width: 2px;
+  fill: none;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .sankey-flow-container {
@@ -129,15 +190,29 @@
     font-size: 13px;
   }
   
+  .sankey-wrapper {
+    min-height: 600px;
+    max-height: 700px;
+  }
+  
   .sankey-flow-diagram {
-    height: 500px;
+    min-width: 1400px;
+    min-height: 1000px;
   }
   
   .sankey-labels text {
-    font-size: 9px;
+    font-size: 12px;
   }
   
   .level-indicator {
+    font-size: 16px;
+  }
+  
+  .collapse-indicator {
+    r: 8px;
+  }
+  
+  .collapse-symbol {
     font-size: 12px;
   }
 }
@@ -161,16 +236,48 @@
     border-width: 2px;
     background: var(--bg-primary);
   }
+  
+  .collapse-indicator {
+    stroke-width: 2px !important;
+  }
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .sankey-nodes rect,
-  .sankey-links path {
+  .sankey-links path,
+  .collapse-indicator,
+  .collapse-symbol,
+  .node-group {
     transition: none !important;
   }
   
   .sankey-links path.animated {
     animation: none !important;
   }
+}
+
+/* Custom scrollbar for the wrapper */
+.sankey-wrapper::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.sankey-wrapper::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 6px;
+}
+
+.sankey-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 6px;
+  border: 2px solid var(--bg-primary);
+}
+
+.sankey-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+.sankey-wrapper::-webkit-scrollbar-corner {
+  background: var(--bg-primary);
 } 
