@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { PathwayData, OmicsType } from '../types';
 import { DRUG_TREATMENTS } from '../data/mockData';
@@ -58,8 +58,6 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
   // Add state for filter visibility
   const [isFiltersOpen, setIsFiltersOpen] = useState<boolean>(true);
 
-  const availableDrugs = useMemo(() => (DRUG_TREATMENTS.map(d => d.id)), []);
-
   // Drug color functions - moved outside useMemo for accessibility
   const getDrugColor = (drugId: string): string => {
     const drugColors: { [key: string]: string } = {
@@ -72,28 +70,17 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
     return drugColors[drugId] || '#888888';
   };
 
-  const getMultiDrugColor = (drugEffects: { [drugId: string]: number }): string => {
+  const getMultiDrugColor = useCallback((drugEffects: { [drugId: string]: number }): string => {
     const drugIds = Object.keys(drugEffects);
     if (drugIds.length === 0) return '#888888';
     if (drugIds.length === 1) return getDrugColor(drugIds[0]);
     
     // For multiple drugs, create a gradient or use a special color
     return '#FF8C42'; // Orange for multiple drugs
-  };
-
-  // New function to create multi-drug color patterns
-  const getMultiDrugPattern = (drugEffects: { [drugId: string]: number }): string => {
-    const drugIds = Object.keys(drugEffects);
-    if (drugIds.length <= 1) return '';
-    
-    // Create a pattern that represents multiple drugs
-    // For now, we'll use a striped pattern approach
-    const colors = drugIds.map(drugId => getDrugColor(drugId));
-    return `repeating-linear-gradient(45deg, ${colors.join(', ')})`;
-  };
+  }, []);
 
   // Function to blend multiple drug colors
-  const blendDrugColors = (drugEffects: { [drugId: string]: number }): string => {
+  const blendDrugColors = useCallback((drugEffects: { [drugId: string]: number }): string => {
     const drugIds = Object.keys(drugEffects);
     if (drugIds.length === 0) return '#888888';
     if (drugIds.length === 1) return getDrugColor(drugIds[0]);
@@ -114,16 +101,18 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
     });
     
     return d3.rgb(Math.round(blendedR), Math.round(blendedG), Math.round(blendedB)).toString();
-  };
+  }, []);
 
-  // Get unique pathways for filtering
-  const availablePathways = useMemo(() => {
-    const pathways = new Set<string>();
-    data.nodes.forEach(node => {
-      pathways.add(node.pathway);
-    });
-    return ['all', ...Array.from(pathways).sort()];
-  }, [data]);
+  // New function to create multi-drug color patterns
+  const getMultiDrugPattern = (drugEffects: { [drugId: string]: number }): string => {
+    const drugIds = Object.keys(drugEffects);
+    if (drugIds.length <= 1) return '';
+    
+    // Create a pattern that represents multiple drugs
+    // For now, we'll use a striped pattern approach
+    const colors = drugIds.map(drugId => getDrugColor(drugId));
+    return `repeating-linear-gradient(45deg, ${colors.join(', ')})`;
+  };
 
   // Get unique options for each biological level
   const availableMolecularPathways = useMemo(() => {
@@ -191,34 +180,6 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
     });
     return ['all', ...Array.from(outcomes).sort()];
   }, [data]);
-
-  // Handle pathway selection
-  const handlePathwaySelection = (pathway: string) => {
-    if (isMultiSelect) {
-      const newSelected = new Set(selectedPathways);
-      if (pathway === 'all') {
-        // If "all" is selected, clear other selections
-        newSelected.clear();
-        newSelected.add('all');
-      } else {
-        // Remove "all" if it was selected
-        newSelected.delete('all');
-        if (newSelected.has(pathway)) {
-          newSelected.delete(pathway);
-          // If no pathways selected, default to "all"
-          if (newSelected.size === 0) {
-            newSelected.add('all');
-          }
-        } else {
-          newSelected.add(pathway);
-        }
-      }
-      setSelectedPathways(newSelected);
-    } else {
-      // Single select mode
-      setSelectedPathways(new Set([pathway]));
-    }
-  };
 
   // Generic filter handler function
   const createFilterHandler = (
@@ -587,7 +548,7 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
     };
 
     return rootNode;
-  }, [data, drugData, selectedDrugs, selectedPathways, selectedMolecularPathways, selectedCellularFunctions, selectedTissueTypes, selectedOrgans, selectedSystems, selectedOutcomes]);
+  }, [data, drugData, selectedDrugs, selectedPathways, selectedMolecularPathways, selectedCellularFunctions, selectedTissueTypes, selectedOrgans, selectedSystems, selectedOutcomes, treatmentMode]);
 
   useEffect(() => {
     if (!svgRef.current || !treeData) return;

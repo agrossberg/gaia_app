@@ -71,8 +71,6 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
   const visibleLayers = externalVisibleLayers || internalVisibleLayers;
   
   const graphRef = useRef<any>(null);
-  const [controlType, setControlType] = useState<'trackball' | 'orbit' | 'fly'>('trackball');
-  const [cameraPosition, setCameraPosition] = useState<{x?: number, y?: number, z?: number}>({});
   const startPanPosition = useRef<{x: number, y: number} | null>(null);
   const isPanning = useRef<boolean>(false);
   const [isPanModeActive, setIsPanModeActive] = useState(false);
@@ -115,7 +113,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         ketamine: {
           systemLabels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'],
           organCount: 10,
-          tissueCount: 35,
+          tissueCount: 4,
           cellularCount: 120,
           molecularCount: 150, // Much fewer, more connected
           connectionDensity: 0.8,
@@ -124,7 +122,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         aspirin: {
           systemLabels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'],
           organCount: 8,
-          tissueCount: 25,
+          tissueCount: 3,
           cellularCount: 80,
           molecularCount: 100,
           connectionDensity: 0.6,
@@ -133,7 +131,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         morphine: {
           systemLabels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'],
           organCount: 12,
-          tissueCount: 40,
+          tissueCount: 2,
           cellularCount: 150,
           molecularCount: 200,
           connectionDensity: 0.9,
@@ -142,7 +140,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       }[selectedDrug.id] || {
         systemLabels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'],
         organCount: 8,
-        tissueCount: 30,
+        tissueCount: 1,
         cellularCount: 100,
         molecularCount: 120,
         connectionDensity: 0.7,
@@ -181,7 +179,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             count: drugConfig.tissueCount,
             modules: Math.ceil(drugConfig.tissueCount / 8),
             y: 160, 
-            size: 8,
+            size: 12,
             color: '#FF7F50', // 2D network explorer metabolite color
             opacity: 0.85,
             spread: 250,
@@ -245,7 +243,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             count: 4,
             modules: 4,
             y: 150, 
-            size: 6,
+            size: 12,
             color: '#FF7F50', // 2D network explorer metabolite color
             opacity: 0.85,
             spread: 220,
@@ -1195,6 +1193,12 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       // Change cursor to indicate active panning
       const canvas = graphRef.current.renderer().domElement;
       canvas.style.cursor = 'grabbing';
+      
+      // Disable controls during panning
+      const controls = graphRef.current.controls();
+      if (controls) {
+        controls.enabled = false;
+      }
     }
   }, [isPanModeActive]);
 
@@ -1209,30 +1213,15 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       // Pan the camera
       const camera = graphRef.current.camera();
       if (camera) {
-        // Create a movement vector in camera's local space
-        const movementSpeed = 2;
+        const panSpeed = 0.5;
+        camera.position.x -= deltaX * panSpeed;
+        camera.position.y += deltaY * panSpeed;
         
-        // Get the camera's right vector (X axis of camera's local space)
-        const right = new THREE.Vector3(1, 0, 0);
-        right.applyQuaternion(camera.quaternion);
-        
-        // Get the camera's up vector (Y axis of camera's local space)
-        const up = new THREE.Vector3(0, 1, 0);
-        up.applyQuaternion(camera.quaternion);
-        
-        // Scale the right and up vectors by the movement delta
-        right.multiplyScalar(-deltaX * movementSpeed * 0.1);
-        up.multiplyScalar(deltaY * movementSpeed * 0.1);
-        
-        // Apply the movement to the camera position
-        camera.position.add(right);
-        camera.position.add(up);
-        
-        // Update the controls target to maintain the same viewing direction
+        // Update camera target to maintain relative position
         const controls = graphRef.current.controls();
         if (controls && controls.target) {
-          controls.target.add(right);
-          controls.target.add(up);
+          controls.target.x -= deltaX * panSpeed;
+          controls.target.y += deltaY * panSpeed;
         }
       }
       
@@ -1561,7 +1550,6 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         enableNodeDrag={true}
         enableNavigationControls={true}
         enablePointerInteraction={true}
-        controlType={controlType}
 
         
         // Node styling for glowy modular particle cloud
