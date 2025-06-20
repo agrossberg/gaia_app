@@ -223,10 +223,10 @@ body.light-mode .theme-toggle::before {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
+  align-items: stretch; /* Changed from center to stretch */
   background: var(--bg-primary);
   width: 100%;
-  height: auto;
+  height: calc(100vh - 200px); /* Set explicit height instead of auto */
   min-height: calc(100vh - 200px); /* Account for header and controls */
 }
 

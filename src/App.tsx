@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PathwayVisualization from './components/PathwayVisualization';
-import HierarchicalNetwork from './components/HierarchicalNetwork';
+import HierarchicalNetwork3D from './components/HierarchicalNetwork3D';
+
 import SankeyFlowDiagram from './components/SankeyFlowDiagram';
 import RadarChart from './components/RadarChart';
 import PerturbationAnimation from './components/PerturbationAnimation';
@@ -12,7 +13,7 @@ import { NaturalLanguageQueryParser, QueryResult, EXAMPLE_QUERIES } from './util
 import './App.css';
 
 // Dashboard view types
-type DashboardView = 'dashboard' | 'network' | 'heatmap' | 'sankey' | 'radar' | 'animation' | 'ensemble' | 'drugdesign' | 'dose3d' | 'featurespace';
+type DashboardView = 'dashboard' | 'network' | 'sankey' | 'radar' | 'animation' | 'ensemble' | 'drugdesign' | 'dose3d' | 'featurespace' | 'network3d';
 
 // Visualization tile configuration
 interface VisualizationTile {
@@ -34,12 +35,12 @@ const VISUALIZATION_TILES: VisualizationTile[] = [
     icon: '🌐'
   },
   {
-    id: 'heatmap',
-    title: 'Hierarchical Network',
-    description: 'Multi-scale constellation from molecular to system-level organization',
+    id: 'network3d',
+    title: '3D Force Graph',
+    description: 'Professional 3D network visualization with force-directed layout and interactions',
     category: 'molecular',
     status: 'active',
-    icon: '🔥'
+    icon: '🌌'
   },
   {
     id: 'sankey',
@@ -119,6 +120,11 @@ function App() {
 
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+
+  // Layer visibility state for 3D network
+  const [visibleLayers, setVisibleLayers] = useState<Set<string>>(new Set([
+    'systems', 'organs', 'tissues', 'cellular', 'molecular'
+  ]));
 
   // Natural language query states
   const [queryText, setQueryText] = useState<string>('');
@@ -279,12 +285,26 @@ function App() {
     setIsDarkMode(!isDarkMode);
   };
 
+  const toggleLayer = (layerName: string) => {
+    const newVisibleLayers = new Set(visibleLayers);
+    if (newVisibleLayers.has(layerName)) {
+      newVisibleLayers.delete(layerName);
+    } else {
+      newVisibleLayers.add(layerName);
+    }
+    setVisibleLayers(newVisibleLayers);
+  };
+
   // Dashboard tile click handler
   const handleTileClick = (tileId: DashboardView) => {
     const tile = VISUALIZATION_TILES.find(t => t.id === tileId);
     if (tile?.status === 'active' || tile?.status === 'preview') {
       setCurrentView(tileId);
     }
+  };
+
+  const handleNodeClick = (nodeId: string) => {
+    console.log('Selected node:', nodeId);
   };
 
   // Render dashboard grid
@@ -312,7 +332,7 @@ function App() {
               <div className="tile-icon">
                 {/* Minimal black/white icons */}
                 {tile.id === 'network' && '⚬'}
-                {tile.id === 'heatmap' && '▦'}
+                {tile.id === 'network3d' && '◉'}
                 {tile.id === 'sankey' && '⟶'}
                 {tile.id === 'radar' && '◈'}
                 {tile.id === 'animation' && '◐'}
@@ -335,10 +355,104 @@ function App() {
     </div>
   );
 
-  // Render controls (only for network view)
+  // Render controls (for network and hierarchical network views)
   const renderControls = () => {
-    if (currentView !== 'network') return null;
+    if (currentView !== 'network' && currentView !== 'network3d') return null;
     
+    // Different controls for 3D network vs regular network
+    if (currentView === 'network3d') {
+      return (
+        <div className="controls-container">
+          <div className="controls-content">
+            {/* Network Topology Selection */}
+            <div className="control-group">
+              <label className="control-label">Topology:</label>
+              <div className="toggle-group">
+                <button 
+                  className={`toggle-button ${treatmentMode === 'control' ? 'active' : ''}`}
+                  onClick={() => setTreatmentMode('control')}
+                >
+                  Standard Network
+                </button>
+                <button 
+                  className={`toggle-button ${treatmentMode === 'drug' ? 'active' : ''}`}
+                  onClick={() => setTreatmentMode('drug')}
+                >
+                  Drug-Specific
+                </button>
+              </div>
+            </div>
+
+            {/* Drug Selection for Different Topologies */}
+            {treatmentMode === 'drug' && (
+              <div className="control-group">
+                <label className="control-label">Generate Network For:</label>
+                <div className="drug-toggles">
+                  {DRUG_TREATMENTS.map(drug => (
+                    <button
+                      key={drug.id}
+                      className={`drug-toggle ${selectedDrugs.has(drug.id) ? 'active' : ''}`}
+                      onClick={() => {
+                        // For 3D network, only allow one drug at a time for topology generation
+                        const newSelectedDrugs = new Set<string>();
+                        if (!selectedDrugs.has(drug.id)) {
+                          newSelectedDrugs.add(drug.id);
+                        }
+                        setSelectedDrugs(newSelectedDrugs);
+                      }}
+                      title={`Generate network topology optimized for ${drug.name} - ${drug.mechanism}`}
+                    >
+                      {drug.name}
+                      {selectedDrugs.has(drug.id) && <span className="drug-check">✓</span>}
+                    </button>
+                  ))}
+                </div>
+
+              </div>
+            )}
+
+            {/* Layer Toggle Controls */}
+            <div className="control-group">
+              <label className="control-label">Network Layers:</label>
+              <div className="layer-controls">
+                {[
+                  { key: 'systems', label: 'Systems', color: '#E86659' },
+                  { key: 'organs', label: 'Organs', color: '#CCCCFF' },
+                  { key: 'tissues', label: 'Tissues', color: '#FF7F50' },
+                  { key: 'cellular', label: 'Cellular', color: '#9FE2BF' },
+                  { key: 'molecular', label: 'Molecular', color: '#DFFF00' }
+                ].map(layer => (
+                  <button
+                    key={layer.key}
+                    onClick={() => toggleLayer(layer.key)}
+                    className={`layer-toggle ${visibleLayers.has(layer.key) ? 'active' : ''}`}
+                    style={{
+                      backgroundColor: visibleLayers.has(layer.key) ? layer.color : 'transparent',
+                      borderColor: layer.color,
+                      color: visibleLayers.has(layer.key) ? '#000' : layer.color,
+                      fontSize: '12px',
+                      padding: '6px 12px',
+                      margin: '4px',
+                      border: `2px solid ${layer.color}`,
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontWeight: visibleLayers.has(layer.key) ? 'bold' : 'normal'
+                    }}
+                  >
+                    {layer.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+
+          </div>
+        </div>
+      );
+    }
+    
+    // Original controls for regular network explorer
     return (
       <div className="controls-container">
         <div className="controls-content">
@@ -428,9 +542,6 @@ function App() {
                   </button>
                 ))}
               </div>
-
-              
-
             </div>
           )}
 
@@ -537,14 +648,17 @@ function App() {
           </div>
         );
 
-      case 'heatmap':
+      case 'network3d':
         return (
           <div className="visualization-container-fullwidth">
-            <HierarchicalNetwork 
+            <HierarchicalNetwork3D 
               data={baselineData}
               drugData={drugPerturbedData}
               selectedDrugs={selectedDrugs}
               isDarkMode={isDarkMode}
+              visibleLayers={visibleLayers}
+              onNodeClick={handleNodeClick}
+              onLayerToggle={toggleLayer}
             />
           </div>
         );

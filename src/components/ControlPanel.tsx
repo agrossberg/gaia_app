@@ -10,10 +10,12 @@ interface ControlPanelProps {
   availableDrugs: DrugTreatment[];
   selectedDrug?: DrugTreatment;
   visualizationMode: VisualizationMode;
+  visibleLayers?: Set<string>;
   onPathwayChange: (pathway: string | undefined) => void;
   onOmicsTypeChange: (omicsType: OmicsType | undefined) => void;
   onDrugChange: (drug: DrugTreatment | undefined) => void;
   onVisualizationModeChange: (mode: VisualizationMode) => void;
+  onLayerToggle?: (layerName: string) => void;
   onReset: () => void;
 }
 
@@ -24,10 +26,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   availableDrugs,
   selectedDrug,
   visualizationMode,
+  visibleLayers,
   onPathwayChange,
   onOmicsTypeChange,
   onDrugChange,
   onVisualizationModeChange,
+  onLayerToggle,
   onReset
 }) => {
   const omicsTypes = Object.values(OmicsType);
@@ -138,6 +142,43 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           ))}
         </select>
       </div>
+
+      {/* Layer Toggle Controls */}
+      {visibleLayers && onLayerToggle && (
+        <div className="control-section">
+          <label>🌐 Network Layers:</label>
+          <div className="layer-controls">
+            {[
+              { key: 'systems', label: 'Systems', color: '#ff6b35' },
+              { key: 'organs', label: 'Organs', color: '#4fb3d9' },
+              { key: 'tissues', label: 'Tissues', color: '#f7931e' },
+              { key: 'cellular', label: 'Cellular', color: '#92d050' },
+              { key: 'molecular', label: 'Molecular', color: '#ffc000' }
+            ].map(layer => (
+              <button
+                key={layer.key}
+                onClick={() => onLayerToggle(layer.key)}
+                className={`layer-toggle ${visibleLayers.has(layer.key) ? 'active' : ''}`}
+                style={{
+                  backgroundColor: visibleLayers.has(layer.key) ? layer.color : 'transparent',
+                  borderColor: layer.color,
+                  color: visibleLayers.has(layer.key) ? '#000' : layer.color,
+                  fontSize: '12px',
+                  padding: '6px 12px',
+                  margin: '4px',
+                  border: `2px solid ${layer.color}`,
+                  borderRadius: '16px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  fontWeight: visibleLayers.has(layer.key) ? 'bold' : 'normal'
+                }}
+              >
+                {layer.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="control-section">
         <button onClick={onReset} className="reset-button">
