@@ -230,19 +230,19 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           },
           { 
             name: 'organs', 
-            count: 6,
+            count: 75,
             modules: 2,
             y: 250, 
             size: 12,
             color: '#CCCCFF', // 2D network explorer protein color
             opacity: 0.9,
             spread: 280,
-            showLabels: true,
+            showLabels: false,
             labels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Lung', 'Blood']
           },
           { 
             name: 'tissues', 
-            count: 20,
+            count: 4,
             modules: 4,
             y: 150, 
             size: 6,
@@ -254,7 +254,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           },
           { 
             name: 'cellular', 
-            count: 50,
+            count: 150,
             modules: 8,
             y: 50, 
             size: 6,
@@ -266,7 +266,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           },
           { 
             name: 'molecular', 
-            count: 80, // Much fewer floating particles
+            count: 4080, // Much fewer floating particles
             modules: 10,
             y: -50, 
             size: 4,
