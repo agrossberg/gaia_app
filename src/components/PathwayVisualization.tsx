@@ -35,6 +35,12 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
 
+  // Draggable popup state
+  const [isDragging, setIsDragging] = useState(false);
+  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const startPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const popupRef = useRef<HTMLDivElement | null>(null);
+
   // New color palette
   const colorPalette = useMemo(() => [
     '#78A8D4', // Light blue
@@ -192,6 +198,42 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     console.log('=== END getNodeDrugEffects DEBUG ===');
     return effects;
   }, [individualDrugData, selectedDrugs, drugColors]);
+
+  // Draggable popup functions
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    setPopupPosition({
+      x: e.clientX - startPos.current.x,
+      y: e.clientY - startPos.current.y,
+    });
+  }, [isDragging]);
+
+  const onMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const onMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    setIsDragging(true);
+    startPos.current = { x: e.clientX - popupPosition.x, y: e.clientY - popupPosition.y };
+  }, [popupPosition]);
+
+  // Reset popup position when node selection changes
+  useEffect(() => {
+    if (selectedNode) {
+      setPopupPosition({ x: 0, y: 0 });
+    }
+  }, [selectedNode]);
+
+  // Add event listeners for dragging
+  useEffect(() => {
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [onMouseMove, onMouseUp]);
 
   // Get link drug effects from all selected drugs
   const getLinkDrugEffects = useCallback((link: BiologicalLink) => {
@@ -917,48 +959,89 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
 
       {/* Node information panel */}
       {currentNode && (
-        <div className="node-info">
-          <h3>{currentNode.name}</h3>
-          <p><strong>Type:</strong> {currentNode.type}</p>
-          <p><strong>Pathway:</strong> {currentNode.pathway}</p>
-          <p><strong>Category:</strong> {Array.isArray(currentNode.broadCategory) ? currentNode.broadCategory.join(', ') : currentNode.broadCategory}</p>
+        <div 
+          className="node-info" 
+          ref={popupRef}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            zIndex: 1000,
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            transform: `translate(${popupPosition.x}px, ${popupPosition.y}px)`,
+            cursor: isDragging ? 'grabbing' : 'default',
+            background: isDarkMode ? 'var(--bg-secondary)' : 'rgba(232, 227, 207, 0.95)',
+            borderRadius: '12px',
+            boxShadow: '0 8px 32px var(--bg-primary)',
+            border: '1px solid var(--border-primary)'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={onMouseDown}
+        >
+          {/* Close button in the corner */}
+          <div style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            zIndex: 1
+          }}>
+            <button 
+              className="popup-close"
+              onClick={() => setSelectedNode(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
+                fontSize: '18px',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = isDarkMode ? '#ffffff' : '#000000'}
+              onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)'}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              ×
+            </button>
+          </div>
           
-          {visualizationMode === VisualizationMode.COMPARISON && baselineNode ? (
-            <>
-              <p><strong>Baseline Expression:</strong> {baselineNode.expression?.toFixed(2)}</p>
-              <p><strong>Perturbed Expression:</strong> {currentNode.expression?.toFixed(2)}</p>
-              <p><strong>Fold Change:</strong> 
-                <span className={`fold-change ${(currentNode.foldChange || 1) > 1.2 ? 'upregulated' : (currentNode.foldChange || 1) < 0.8 ? 'downregulated' : 'unchanged'}`}>
-                  {currentNode.foldChange?.toFixed(2)}x
-                </span>
-              </p>
-            </>
-          ) : (
-            <>
-              <p><strong>Expression:</strong> {currentNode.expression?.toFixed(2)}</p>
-              {currentNode.foldChange && currentNode.foldChange !== 1 && (
+          {/* Popup content */}
+          <div style={{ padding: '16px' }}>
+            <h3>{currentNode.name}</h3>
+            <p><strong>Type:</strong> {currentNode.type}</p>
+            <p><strong>Pathway:</strong> {currentNode.pathway}</p>
+            <p><strong>Category:</strong> {Array.isArray(currentNode.broadCategory) ? currentNode.broadCategory.join(', ') : currentNode.broadCategory}</p>
+            
+            {visualizationMode === VisualizationMode.COMPARISON && baselineNode ? (
+              <>
+                <p><strong>Baseline Expression:</strong> {baselineNode.expression?.toFixed(2)}</p>
+                <p><strong>Perturbed Expression:</strong> {currentNode.expression?.toFixed(2)}</p>
                 <p><strong>Fold Change:</strong> 
-                  <span className={`fold-change ${currentNode.foldChange > 1.2 ? 'upregulated' : currentNode.foldChange < 0.8 ? 'downregulated' : 'unchanged'}`}>
-                    {currentNode.foldChange.toFixed(2)}x
+                  <span className={`fold-change ${(currentNode.foldChange || 1) > 1.2 ? 'upregulated' : (currentNode.foldChange || 1) < 0.8 ? 'downregulated' : 'unchanged'}`}>
+                    {currentNode.foldChange?.toFixed(2)}x
                   </span>
                 </p>
-              )}
-            </>
-          )}
-          
-          <p><strong>Significance:</strong> {currentNode.significance?.toFixed(4)}</p>
-          <p><strong>Confidence:</strong> {((currentNode.confidence || 0.5) * 100).toFixed(1)}%</p>
-          {currentNode.isPerturbationTarget && (
-            <p className="perturbation-target">🎯 Drug Target</p>
-          )}
-          
-          <div style={{ marginTop: '12px', fontSize: '11px', color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,43,50,0.7)' }}>
-            🖱️ Click nodes to highlight pathways • ⭐ Click empty space to deselect<br/>
-            📏 Node size = confidence in causal chain importance<br/>
-            {visualizationMode === VisualizationMode.PERTURBED && (
-              <>💊 Green = upregulated • Red = downregulated • Larger = stronger effect<br/></>
+              </>
+            ) : (
+              <>
+                <p><strong>Expression:</strong> {currentNode.expression?.toFixed(2)}</p>
+                {currentNode.foldChange && currentNode.foldChange !== 1 && (
+                  <p><strong>Fold Change:</strong> 
+                    <span className={`fold-change ${currentNode.foldChange > 1.2 ? 'upregulated' : currentNode.foldChange < 0.8 ? 'downregulated' : 'unchanged'}`}>
+                      {currentNode.foldChange.toFixed(2)}x
+                    </span>
+                  </p>
+                )}
+              </>
             )}
-            ↔️ Scroll horizontally/vertically to explore the full network
+            
+            <p><strong>Significance:</strong> {currentNode.significance?.toFixed(4)}</p>
+            <p><strong>Confidence:</strong> {((currentNode.confidence || 0.5) * 100).toFixed(1)}%</p>
+            {currentNode.isPerturbationTarget && (
+              <p className="perturbation-target">🎯 Drug Target</p>
+            )}
           </div>
         </div>
       )}

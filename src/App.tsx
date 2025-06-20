@@ -164,13 +164,7 @@ function App() {
 
   // Compute individual drug effects for each selected drug
   const drugPerturbedData = useMemo(() => {
-    console.log('=== DRUG DATA COMPUTATION ===');
-    console.log('selectedDrugs.size:', selectedDrugs.size);
-    console.log('treatmentMode:', treatmentMode);
-    console.log('baselineData.nodes.length:', baselineData.nodes.length);
-    
     if (selectedDrugs.size === 0 || treatmentMode === 'control') {
-      console.log('Returning null - no drugs selected or control mode');
       return null; // No drug data when in control mode or no drugs selected
     }
 
@@ -178,24 +172,14 @@ function App() {
     const individualDrugData: { [drugId: string]: PathwayData } = {};
     
     selectedDrugs.forEach(drugId => {
-      console.log(`Processing drug: ${drugId}`);
       const drug = DRUG_TREATMENTS.find(d => d.id === drugId);
-      console.log(`Found drug:`, drug?.name);
       
       if (drug) {
         const perturbedData = applyDrugPerturbation(baselineData, drug);
-        console.log(`Drug ${drugId} perturbation created ${perturbedData.nodes.length} nodes`);
-        
-        // Count how many nodes are perturbation targets
-        const targetCount = perturbedData.nodes.filter(n => n.isPerturbationTarget).length;
-        console.log(`Drug ${drugId} has ${targetCount} perturbation targets`);
-        
         individualDrugData[drugId] = perturbedData;
       }
     });
     
-    console.log('Final individualDrugData keys:', Object.keys(individualDrugData));
-    console.log('=== END DRUG DATA COMPUTATION ===');
     return individualDrugData;
   }, [baselineData, selectedDrugs, treatmentMode]);
 
@@ -211,9 +195,7 @@ function App() {
     
     // Apply natural language query filtering first
     if (queryText.trim() && nlpParser) {
-      console.log('Applying NLP query:', queryText);
       const result = nlpParser.parseQuery(queryText, dataToFilter.nodes);
-      console.log('Query result:', result);
       setQueryResult(result);
       
       // Use the filtered nodes from the query
@@ -321,7 +303,7 @@ function App() {
   };
 
   const handleNodeClick = (nodeId: string) => {
-    console.log('Selected node:', nodeId);
+    // Node click handler - can be extended for future functionality
   };
 
   // Render dashboard grid
@@ -369,30 +351,51 @@ function App() {
     </div>
   );
 
-  // Render controls (for network and hierarchical network views)
+  // Render controls (for network, hierarchical network, and sankey views)
   const renderControls = () => {
-    if (currentView !== 'network' && currentView !== 'network3d') return null;
+    if (currentView !== 'network' && currentView !== 'network3d' && currentView !== 'sankey') return null;
     
     // Different controls for 3D network vs regular network
     if (currentView === 'network3d') {
       return (
         <div className="controls-container">
           <div className="controls-content">
+            {/* Add Blue Title */}
+            <div className="section-title" style={{ 
+              color: '#364FA1', 
+              textTransform: 'none',
+              fontSize: '20px'
+            }}>
+              3D Network Explorer
+            </div>
+
+            {/* Add subtitle */}
+            <div style={{ 
+              fontSize: '14px', 
+              color: 'var(--text-secondary)', 
+              lineHeight: '1.5',
+              textAlign: 'left',
+              marginBottom: '16px',
+              maxWidth: '600px'
+            }}>
+              Hierarchical Network Visualization
+            </div>
+            
             {/* Network Topology Selection */}
             <div className="control-group">
-              <label className="control-label">Topology:</label>
+              <label className="control-label">Treatment:</label>
               <div className="toggle-group">
                 <button 
                   className={`toggle-button ${treatmentMode === 'control' ? 'active' : ''}`}
                   onClick={() => setTreatmentMode('control')}
                 >
-                  Standard Network
+                  Control
                 </button>
                 <button 
                   className={`toggle-button ${treatmentMode === 'drug' ? 'active' : ''}`}
                   onClick={() => setTreatmentMode('drug')}
                 >
-                  Drug-Specific
+                  Drug
                 </button>
               </div>
             </div>
@@ -400,7 +403,7 @@ function App() {
             {/* Drug Selection for Different Topologies */}
             {treatmentMode === 'drug' && (
               <div className="control-group">
-                <label className="control-label">Generate Network For:</label>
+                <label className="control-label">Drug:</label>
                 <div className="drug-toggles">
                   {DRUG_TREATMENTS.map(drug => (
                     <button
@@ -466,129 +469,349 @@ function App() {
       );
     }
     
+    // Controls for sankey view
+    if (currentView === 'sankey') {
+      return (
+        <div className="controls-container">
+          <div className="controls-content">
+            {/* Treatment Mode Toggle */}
+            <div className="control-group">
+              <label className="control-label">Treatment:</label>
+              <div className="toggle-group">
+                <button 
+                  className={`toggle-button ${treatmentMode === 'control' ? 'active' : ''}`}
+                  onClick={() => setTreatmentMode('control')}
+                >
+                  Control
+                </button>
+                <button 
+                  className={`toggle-button ${treatmentMode === 'drug' ? 'active' : ''}`}
+                  onClick={() => setTreatmentMode('drug')}
+                >
+                  Drug
+                </button>
+              </div>
+            </div>
+
+            {/* Multi-Drug Selection (only visible when drug mode is selected) */}
+            {treatmentMode === 'drug' && (
+              <div className="control-group">
+                <label className="control-label">Drugs:</label>
+                <div className="drug-toggles">
+                  {DRUG_TREATMENTS.map(drug => (
+                    <button
+                      key={drug.id}
+                      className={`drug-toggle ${selectedDrugs.has(drug.id) ? 'active' : ''}`}
+                      onClick={() => toggleDrug(drug.id)}
+                      title={`${drug.name} - ${drug.mechanism}`}
+                    >
+                      {drug.name}
+                      {selectedDrugs.has(drug.id) && <span className="drug-check">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
     // Original controls for regular network explorer
     return (
-      <div className="controls-container">
+      <div className="controls-container network-explorer-controls">
         <div className="controls-content">
-          {/* Natural Language Query */}
-          <div className="control-group query-group">
-            <label className="control-label">Query:</label>
-            <div className="query-input-container">
-              <form onSubmit={handleQuerySubmit}>
-                <input
-                  type="text"
-                  className="query-input"
-                  placeholder="Ask about the network (e.g., 'Show proteins in energy metabolism')"
-                  value={queryText}
-                  onChange={(e) => setQueryText(e.target.value)}
-                />
-                <button type="button" className="query-help-btn" onClick={() => setShowQueryHelp(!showQueryHelp)}>
+          {/* Blue Title */}
+          <div className="section-title" style={{ 
+            color: '#364FA1', 
+            textTransform: 'none',
+            fontSize: '20px'
+          }}>
+            Network Explorer
+          </div>
+
+          {/* High-level Summary */}
+          <div style={{ 
+            fontSize: '14px', 
+            color: 'var(--text-secondary)', 
+            lineHeight: '1.5',
+            textAlign: 'left',
+            marginBottom: '6px',
+            maxWidth: '600px'
+          }}>
+            Explore biological pathways through interactive network visualization.
+          </div>
+
+          {/* Horizontal controls row */}
+          <div className="controls-row">
+            {/* Natural Language Query */}
+            <div className="control-group query-group">
+              <label className="control-label">Query:</label>
+              <div className="query-input-container">
+                <form onSubmit={handleQuerySubmit}>
+                  <input
+                    type="text"
+                    className="query-input"
+                    placeholder="Ask about the network (e.g., 'Show proteins in energy metabolism')"
+                    value={queryText}
+                    onChange={(e) => setQueryText(e.target.value)}
+                  />
+                  <button type="button" className="query-help-btn" onClick={() => setShowQueryHelp(!showQueryHelp)}>
+                    ?
+                  </button>
+                  {queryText && (
+                    <button type="button" className="query-clear-btn" onClick={clearQuery}>
+                      ×
+                    </button>
+                  )}
+                </form>
+                
+                {showQueryHelp && (
+                  <div className="query-help">
+                    <h4>Example Queries:</h4>
+                    <div className="query-examples">
+                      {EXAMPLE_QUERIES.slice(0, 6).map((example, index) => (
+                        <button
+                          key={index}
+                          className="query-example"
+                          onClick={() => handleExampleQuery(example)}
+                        >
+                          {example}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {queryResult && (
+                  <div className="query-result">
+                    <span className="query-explanation">{queryResult.explanation}</span>
+                    <span className={`query-confidence ${queryResult.confidence > 0.7 ? 'high' : queryResult.confidence > 0.4 ? 'medium' : 'low'}`}>
+                      {Math.round(queryResult.confidence * 100)}% confidence
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Treatment Mode Toggle */}
+            <div className="control-group">
+              <label className="control-label">Treatment:</label>
+              <div className="toggle-group">
+                <button 
+                  className={`toggle-button ${treatmentMode === 'control' ? 'active' : ''}`}
+                  onClick={() => setTreatmentMode('control')}
+                >
+                  Control
+                </button>
+                <button 
+                  className={`toggle-button ${treatmentMode === 'drug' ? 'active' : ''}`}
+                  onClick={() => setTreatmentMode('drug')}
+                >
+                  Drug
+                </button>
+              </div>
+            </div>
+
+            {/* Multi-Drug Selection (only visible when drug mode is selected) */}
+            {treatmentMode === 'drug' && (
+              <div className="control-group">
+                <label className="control-label">Drugs:</label>
+                <div className="drug-toggles">
+                  {DRUG_TREATMENTS.map(drug => (
+                    <button
+                      key={drug.id}
+                      className={`drug-toggle ${selectedDrugs.has(drug.id) ? 'active' : ''}`}
+                      onClick={() => toggleDrug(drug.id)}
+                      title={`${drug.name} - ${drug.mechanism}`}
+                    >
+                      {drug.name}
+                      {selectedDrugs.has(drug.id) && <span className="drug-check">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Network Layers with Info Button */}
+            <div className="control-group">
+              <label className="control-label">Network Layers:</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="layer-controls">
+                  <button 
+                    className={`layer-toggle ${visibleNodeTypes.has(OmicsType.PROTEIN) ? 'active' : ''}`}
+                    onClick={() => toggleNodeType(OmicsType.PROTEIN)}
+                    style={{
+                      backgroundColor: visibleNodeTypes.has(OmicsType.PROTEIN) ? '#CCCCFF' : 'transparent',
+                      borderColor: '#CCCCFF',
+                      color: visibleNodeTypes.has(OmicsType.PROTEIN) ? '#000' : '#CCCCFF',
+                      fontSize: '12px',
+                      padding: '6px 12px',
+                      margin: '4px',
+                      border: '2px solid #CCCCFF',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontWeight: visibleNodeTypes.has(OmicsType.PROTEIN) ? 'bold' : 'normal'
+                    }}
+                  >
+                    Proteins
+                  </button>
+                  <button 
+                    className={`layer-toggle ${visibleNodeTypes.has(OmicsType.METABOLITE) ? 'active' : ''}`}
+                    onClick={() => toggleNodeType(OmicsType.METABOLITE)}
+                    style={{
+                      backgroundColor: visibleNodeTypes.has(OmicsType.METABOLITE) ? '#FF7F50' : 'transparent',
+                      borderColor: '#FF7F50',
+                      color: visibleNodeTypes.has(OmicsType.METABOLITE) ? '#000' : '#FF7F50',
+                      fontSize: '12px',
+                      padding: '6px 12px',
+                      margin: '4px',
+                      border: '2px solid #FF7F50',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontWeight: visibleNodeTypes.has(OmicsType.METABOLITE) ? 'bold' : 'normal'
+                    }}
+                  >
+                    Metabolites
+                  </button>
+                  <button 
+                    className={`layer-toggle ${visibleNodeTypes.has(OmicsType.LIPID) ? 'active' : ''}`}
+                    onClick={() => toggleNodeType(OmicsType.LIPID)}
+                    style={{
+                      backgroundColor: visibleNodeTypes.has(OmicsType.LIPID) ? '#DFFF00' : 'transparent',
+                      borderColor: '#DFFF00',
+                      color: visibleNodeTypes.has(OmicsType.LIPID) ? '#000' : '#DFFF00',
+                      fontSize: '12px',
+                      padding: '6px 12px',
+                      margin: '4px',
+                      border: '2px solid #DFFF00',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontWeight: visibleNodeTypes.has(OmicsType.LIPID) ? 'bold' : 'normal'
+                    }}
+                  >
+                    Lipids
+                  </button>
+                  <button 
+                    className={`layer-toggle ${visibleNodeTypes.has(OmicsType.mRNA) ? 'active' : ''}`}
+                    onClick={() => toggleNodeType(OmicsType.mRNA)}
+                    style={{
+                      backgroundColor: visibleNodeTypes.has(OmicsType.mRNA) ? '#9FE2BF' : 'transparent',
+                      borderColor: '#9FE2BF',
+                      color: visibleNodeTypes.has(OmicsType.mRNA) ? '#000' : '#9FE2BF',
+                      fontSize: '12px',
+                      padding: '6px 12px',
+                      margin: '4px',
+                      border: '2px solid #9FE2BF',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontWeight: visibleNodeTypes.has(OmicsType.mRNA) ? 'bold' : 'normal'
+                    }}
+                  >
+                    Transcripts
+                  </button>
+                </div>
+                <button 
+                  className="info-button-small"
+                  onClick={() => setShowInfoPopup(!showInfoPopup)}
+                  title="Show instructions"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    fontSize: '14px',
+                    marginLeft: '4px'
+                  }}
+                >
                   ?
                 </button>
-                {queryText && (
-                  <button type="button" className="query-clear-btn" onClick={clearQuery}>
-                    ×
-                  </button>
-                )}
-              </form>
-              
-              {showQueryHelp && (
-                <div className="query-help">
-                  <h4>Example Queries:</h4>
-                  <div className="query-examples">
-                    {EXAMPLE_QUERIES.slice(0, 6).map((example, index) => (
-                      <button
-                        key={index}
-                        className="query-example"
-                        onClick={() => handleExampleQuery(example)}
-                      >
-                        {example}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {queryResult && (
-                <div className="query-result">
-                  <span className="query-explanation">{queryResult.explanation}</span>
-                  <span className={`query-confidence ${queryResult.confidence > 0.7 ? 'high' : queryResult.confidence > 0.4 ? 'medium' : 'low'}`}>
-                    {Math.round(queryResult.confidence * 100)}% confidence
-                  </span>
-                </div>
-              )}
+              </div>
             </div>
           </div>
 
-          {/* Treatment Mode Toggle */}
-          <div className="control-group">
-            <label className="control-label">Treatment:</label>
-            <div className="toggle-group">
-              <button 
-                className={`toggle-button ${treatmentMode === 'control' ? 'active' : ''}`}
-                onClick={() => setTreatmentMode('control')}
-              >
-                Control
-              </button>
-              <button 
-                className={`toggle-button ${treatmentMode === 'drug' ? 'active' : ''}`}
-                onClick={() => setTreatmentMode('drug')}
-              >
-                Drug
-              </button>
-            </div>
-          </div>
-
-          {/* Multi-Drug Selection (only visible when drug mode is selected) */}
-          {treatmentMode === 'drug' && (
-            <div className="control-group">
-              <label className="control-label">Drugs:</label>
-              <div className="drug-toggles">
-                {DRUG_TREATMENTS.map(drug => (
-                  <button
-                    key={drug.id}
-                    className={`drug-toggle ${selectedDrugs.has(drug.id) ? 'active' : ''}`}
-                    onClick={() => toggleDrug(drug.id)}
-                    title={`${drug.name} - ${drug.mechanism}`}
-                  >
-                    {drug.name}
-                    {selectedDrugs.has(drug.id) && <span className="drug-check">✓</span>}
-                  </button>
-                ))}
+          {/* Info Popup */}
+          {showInfoPopup && (
+            <div style={{
+              position: 'absolute',
+              top: '120px',
+              right: '20px',
+              zIndex: 1001,
+              width: '320px',
+              background: isDarkMode ? 'rgba(30, 30, 40, 0.95)' : 'rgba(232, 227, 207, 0.95)',
+              mixBlendMode: 'normal',
+              isolation: 'isolate',
+              borderRadius: '8px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+              border: `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'}`,
+              overflow: 'hidden',
+              padding: '16px',
+              boxSizing: 'border-box'
+            }}>
+              {/* Close button in the corner */}
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px'
+              }}>
+                <button 
+                  onClick={() => setShowInfoPopup(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    color: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
+                    padding: '4px',
+                    width: '28px',
+                    height: '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '4px'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              
+              {/* Title */}
+              <h4 style={{ 
+                margin: '0 0 12px 0', 
+                color: isDarkMode ? 'var(--accent-primary)' : '#364FA1', 
+                fontSize: '16px', 
+                fontWeight: '600' 
+              }}>
+                Instructions
+              </h4>
+              
+              {/* Content */}
+              <div style={{ 
+                fontSize: '13px', 
+                color: isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)', 
+                lineHeight: '1.5',
+                width: '100%'
+              }}>
+                <ul style={{ 
+                  margin: '0', 
+                  paddingLeft: '20px',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}>
+                  <li style={{ marginBottom: '6px' }}><strong>Click nodes</strong> to highlight pathways</li>
+                  <li style={{ marginBottom: '6px' }}><strong>Click empty space</strong> to deselect</li>
+                  <li style={{ marginBottom: '6px' }}><strong>Node size</strong> = confidence in causal chain importance</li>
+                  <li style={{ marginBottom: '6px' }}><strong>Scroll</strong> horizontally/vertically to explore the full network</li>
+                  <li style={{ marginBottom: '6px' }}><strong>Drag popups</strong> anywhere on the panel to move them around</li>
+                  {treatmentMode === 'drug' && (
+                    <li><strong>Green</strong> = upregulated • <strong>Red</strong> = downregulated • <strong>Larger</strong> = stronger effect</li>
+                  )}
+                </ul>
               </div>
             </div>
           )}
-
-          {/* Node Type Filters */}
-          <div className="control-group">
-            <label className="control-label">Show:</label>
-            <div className="node-type-toggles">
-              <button 
-                className={`node-type-button proteins ${visibleNodeTypes.has(OmicsType.PROTEIN) ? 'active' : ''}`}
-                onClick={() => toggleNodeType(OmicsType.PROTEIN)}
-              >
-                Proteins
-              </button>
-              <button 
-                className={`node-type-button metabolites ${visibleNodeTypes.has(OmicsType.METABOLITE) ? 'active' : ''}`}
-                onClick={() => toggleNodeType(OmicsType.METABOLITE)}
-              >
-                Metabolites
-              </button>
-              <button 
-                className={`node-type-button lipids ${visibleNodeTypes.has(OmicsType.LIPID) ? 'active' : ''}`}
-                onClick={() => toggleNodeType(OmicsType.LIPID)}
-              >
-                Lipids
-              </button>
-              <button 
-                className={`node-type-button transcripts ${visibleNodeTypes.has(OmicsType.mRNA) ? 'active' : ''}`}
-                onClick={() => toggleNodeType(OmicsType.mRNA)}
-              >
-                Transcripts
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -615,50 +838,6 @@ function App() {
                 isDarkMode={isDarkMode}
               />
             )}
-            
-            {/* Info button for user instructions */}
-            <button 
-              className="info-button"
-              onClick={() => setShowInfoPopup(!showInfoPopup)}
-              title="Show network instructions"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
-                <path d="M12 16v-4"/>
-                <path d="M12 8h.01"/>
-              </svg>
-            </button>
-            
-            {/* Info popup */}
-            {showInfoPopup && (
-              <div className="info-popup">
-                <div className="info-popup-content">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <h4 style={{ margin: 0, color: 'var(--accent-primary)' }}>Network Instructions</h4>
-                    <button
-                      onClick={() => setShowInfoPopup(false)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-primary)',
-                        fontSize: '16px',
-                        cursor: 'pointer',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        opacity: 0.7
-                      }}
-                      onMouseEnter={(e) => (e.target as HTMLButtonElement).style.opacity = '1'}
-                      onMouseLeave={(e) => (e.target as HTMLButtonElement).style.opacity = '0.7'}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <p style={{ margin: '8px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    Click any node to highlight its pathway network
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         );
 
@@ -684,6 +863,9 @@ function App() {
               data={baselineData}
               drugData={drugPerturbedData}
               isDarkMode={isDarkMode}
+              selectedDrugs={selectedDrugs}
+              onDrugToggle={toggleDrug}
+              treatmentMode={treatmentMode}
             />
           </div>
         );

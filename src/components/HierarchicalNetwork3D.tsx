@@ -71,6 +71,11 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
   const visibleLayers = externalVisibleLayers || internalVisibleLayers;
   
   const graphRef = useRef<any>(null);
+  const [controlType, setControlType] = useState<'trackball' | 'orbit' | 'fly'>('trackball');
+  const [cameraPosition, setCameraPosition] = useState<{x?: number, y?: number, z?: number}>({});
+  const startPanPosition = useRef<{x: number, y: number} | null>(null);
+  const isPanning = useRef<boolean>(false);
+  const [isPanModeActive, setIsPanModeActive] = useState(false);
 
   // Set initial camera position and zoom restrictions
   useEffect(() => {
@@ -1065,7 +1070,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     setIsDragging(false);
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handlePanelMouseDown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setIsDragging(true);
     startPos.current = { 
@@ -1132,9 +1137,127 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     }
   }, []);
 
+  // Toggle pan mode
+  const togglePanMode = useCallback(() => {
+    const newPanMode = !isPanModeActive;
+    setIsPanModeActive(newPanMode);
+    
+    // Update cursor style
+    if (graphRef.current) {
+      const canvas = graphRef.current.renderer().domElement;
+      canvas.style.cursor = newPanMode ? 'grab' : 'default';
+      
+      // Temporarily disable other controls when in pan mode
+      const controls = graphRef.current.controls();
+      if (controls) {
+        controls.enabled = !newPanMode;
+      }
+    }
+  }, [isPanModeActive]);
+
+  // Handle mouse events for panning
+  const handleGraphMouseDown = useCallback((event: React.MouseEvent) => {
+    if (isPanModeActive && graphRef.current) {
+      event.preventDefault();
+      isPanning.current = true;
+      startPanPosition.current = { x: event.clientX, y: event.clientY };
+      
+      // Change cursor to indicate active panning
+      const canvas = graphRef.current.renderer().domElement;
+      canvas.style.cursor = 'grabbing';
+    }
+  }, [isPanModeActive]);
+
+  const handleMouseMove = useCallback((event: React.MouseEvent) => {
+    if (isPanning.current && startPanPosition.current && graphRef.current) {
+      event.preventDefault();
+      
+      // Calculate movement delta
+      const deltaX = event.clientX - startPanPosition.current.x;
+      const deltaY = event.clientY - startPanPosition.current.y;
+      
+      // Pan the camera
+      const camera = graphRef.current.camera();
+      if (camera) {
+        // Create a movement vector in camera's local space
+        const movementSpeed = 2;
+        
+        // Get the camera's right vector (X axis of camera's local space)
+        const right = new THREE.Vector3(1, 0, 0);
+        right.applyQuaternion(camera.quaternion);
+        
+        // Get the camera's up vector (Y axis of camera's local space)
+        const up = new THREE.Vector3(0, 1, 0);
+        up.applyQuaternion(camera.quaternion);
+        
+        // Scale the right and up vectors by the movement delta
+        right.multiplyScalar(-deltaX * movementSpeed * 0.1);
+        up.multiplyScalar(deltaY * movementSpeed * 0.1);
+        
+        // Apply the movement to the camera position
+        camera.position.add(right);
+        camera.position.add(up);
+        
+        // Update the controls target to maintain the same viewing direction
+        const controls = graphRef.current.controls();
+        if (controls && controls.target) {
+          controls.target.add(right);
+          controls.target.add(up);
+        }
+      }
+      
+      // Update start position for next move
+      startPanPosition.current = { x: event.clientX, y: event.clientY };
+    }
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    if (isPanning.current && graphRef.current) {
+      isPanning.current = false;
+      startPanPosition.current = null;
+      
+      // Restore cursor
+      const canvas = graphRef.current.renderer().domElement;
+      canvas.style.cursor = isPanModeActive ? 'grab' : 'default';
+      
+      // If we're exiting pan mode, re-enable controls
+      if (!isPanModeActive) {
+        const controls = graphRef.current.controls();
+        if (controls) {
+          controls.enabled = true;
+        }
+      }
+    }
+  }, [isPanModeActive]);
+
+  // Add global mouse event handlers
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      handleMouseUp();
+    };
+    
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (isPanning.current) {
+        handleMouseMove(e as any);
+      }
+    };
+    
+    // Add global event listeners
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+    };
+  }, [handleMouseUp, handleMouseMove]);
+
   return (
-    <div className="hierarchical-network">
-      {/* View Mode Controls */}
+    <div className="hierarchical-network" 
+      onMouseDown={handleGraphMouseDown}
+      onMouseUp={handleMouseUp}
+    >
+      {/* View Mode Controls - without title/subtitle */}
       <div className="view-mode-controls">
         <div className="view-mode-buttons">
           <button 
@@ -1161,6 +1284,15 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         </button>
       </div>
 
+      {/* Pan Mode Toggle Button */}
+      <button 
+        className={`pan-control-btn ${isPanModeActive ? 'active' : ''}`}
+        onClick={togglePanMode}
+        title={isPanModeActive ? "Switch to rotation mode" : "Switch to pan mode"}
+      >
+        {isPanModeActive ? '✋' : '👆'}
+      </button>
+
       {/* Toggle button when panel is hidden */}
       {!isPanelVisible && (
         <button 
@@ -1181,62 +1313,151 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             top: panelPosition.y,
             transform: isDragging ? 'scale(1.02)' : 'scale(1)',
             transition: isDragging ? 'none' : 'transform 0.2s ease',
-            cursor: isDragging ? 'grabbing' : 'grab'
+            cursor: isDragging ? 'grabbing' : 'grab',
+            background: isDarkMode ? 'rgba(30, 30, 40, 0.95)' : 'rgba(232, 227, 207, 0.95)',
+            border: `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'}`,
+            padding: '16px',
+            boxSizing: 'border-box'
           }}
-          onMouseDown={handleMouseDown}
+          onMouseDown={handlePanelMouseDown}
           title="Drag to move panel"
         >
-                      <div className="stats-panel-content">
-              <div 
-                className="stats-panel-header"
-                style={{ cursor: 'inherit' }}
-              >
-                <h4>Network Statistics</h4>
-                <button 
-                  className="panel-close-btn"
-                  onClick={() => setIsPanelVisible(false)}
-                  onMouseDown={(e) => e.stopPropagation()} // Prevent dragging when clicking close
-                  title="Close panel (Esc)"
-                >
-                  ×
-                </button>
-              </div>
-                      <div className="stats-overview">
+          {/* Close button in the corner */}
+          <div style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            zIndex: 10
+          }}>
+            <button 
+              className="panel-close-btn"
+              onClick={() => setIsPanelVisible(false)}
+              onMouseDown={(e) => e.stopPropagation()} // Prevent dragging when clicking close
+              title="Close panel (Esc)"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
+                fontSize: '18px',
+                cursor: 'pointer',
+                padding: '4px',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '4px'
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Panel content without the header */}
+          <div style={{
+            width: '100%',
+            overflowY: 'auto',
+            maxHeight: '450px',
+            paddingTop: '20px' // Add top padding to create space below the close button
+          }}>
+            <div className="stats-overview" style={{ 
+              padding: '0 0 12px 0',
+              borderBottom: `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+              marginBottom: '12px',
+              paddingRight: '36px' // Add right padding to prevent overlap with the close button
+            }}>
               <div className="stat-item total">
                 <span className="stat-label">Total Nodes:</span>
-                <span className="stat-value">{networkData.nodes.length.toLocaleString()}</span>
+                <span className="stat-value" style={{ 
+                  color: isDarkMode ? '#ffffff' : '#000000',
+                  fontWeight: '600'
+                }}>
+                  {networkData.nodes.length.toLocaleString()}
+                </span>
               </div>
               <div className="stat-item total">
                 <span className="stat-label">Total Edges:</span>
-                <span className="stat-value">{networkData.links.length.toLocaleString()}</span>
+                <span className="stat-value" style={{ 
+                  color: isDarkMode ? '#ffffff' : '#000000',
+                  fontWeight: '600'
+                }}>
+                  {networkData.links.length.toLocaleString()}
+                </span>
               </div>
             </div>
           
           <div className="layer-stats">
-            {layerStats.map(layer => (
+            <h5 style={{ 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              color: isDarkMode ? 'var(--accent-primary)' : '#364FA1',
+              fontWeight: '500'
+            }}>
+              Layer Statistics
+            </h5>
+            
+            {Array.from(layerStats.values()).map(layer => (
               <div 
                 key={layer.label} 
-                className={`layer-stat-item ${layer.visible ? 'visible' : 'hidden'}`}
-                style={{ borderLeftColor: layer.color }}
+                className={`layer-stat-item ${!layer.visible ? 'hidden' : ''}`}
+                style={{
+                  background: isDarkMode ? 'rgba(30, 30, 40, 0.5)' : 'rgba(255, 255, 255, 0.2)',
+                  borderLeft: `3px solid ${layer.color}`,
+                  borderRadius: '6px',
+                  padding: '10px',
+                  marginBottom: '10px'
+                }}
               >
                 <div className="layer-stat-header">
-                  <span 
+                  <div 
                     className="layer-color-indicator" 
                     style={{ backgroundColor: layer.color }}
-                  ></span>
-                  <span className="layer-name">{layer.label}</span>
-                  <span className={`layer-status ${layer.visible ? 'visible' : 'hidden'}`}>
-                    {layer.visible ? '●' : '○'}
-                  </span>
-                </div>
-                <div className="layer-stat-counts">
-                  <div className="stat-count">
-                    <span className="count-label">Nodes:</span>
-                    <span className="count-value">{layer.nodeCount.toLocaleString()}</span>
+                  ></div>
+                  <div className="layer-name" style={{ 
+                    color: isDarkMode ? '#ffffff' : '#333333',
+                    flex: 1,
+                    fontWeight: '500'
+                  }}>
+                    {layer.label}
                   </div>
+                  <div className={`layer-status ${layer.visible ? 'visible' : 'hidden'}`} style={{
+                    color: layer.visible ? '#364FA1' : (isDarkMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)')
+                  }}>
+                    {layer.visible ? 'Visible' : 'Hidden'}
+                  </div>
+                </div>
+                
+                <div className="layer-stat-counts" style={{ display: 'flex', gap: '12px' }}>
                   <div className="stat-count">
-                    <span className="count-label">Edges:</span>
-                    <span className="count-value">{layer.edgeCount.toLocaleString()}</span>
+                    <div className="count-label" style={{ 
+                      fontSize: '11px',
+                      color: isDarkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'
+                    }}>
+                      Nodes
+                    </div>
+                    <div className="count-value" style={{ 
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      color: isDarkMode ? '#ffffff' : '#333333'
+                    }}>
+                      {layer.nodeCount.toLocaleString()}
+                    </div>
+                  </div>
+                  
+                  <div className="stat-count">
+                    <div className="count-label" style={{ 
+                      fontSize: '11px',
+                      color: isDarkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'
+                    }}>
+                      Edges
+                    </div>
+                    <div className="count-value" style={{ 
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      color: isDarkMode ? '#ffffff' : '#333333'
+                    }}>
+                      {layer.edgeCount.toLocaleString()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1244,24 +1465,69 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           </div>
           
           {(hoveredNode || selectedNode) && (
-            <div className="interaction-info">
+            <div className="interaction-info" style={{
+              marginTop: '12px',
+              padding: '12px 0 0',
+              borderTop: `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+            }}>
+              <h5 style={{ 
+                margin: '0 0 8px 0',
+                fontSize: '14px',
+                color: isDarkMode ? 'var(--accent-primary)' : '#364FA1',
+                fontWeight: '500'
+              }}>
+                Current Selection
+              </h5>
+              
               {hoveredNode && (
-                <div className="interaction-item">
-                  <span className="interaction-label">Focused:</span>
-                  <span className="interaction-value">{hoveredNode}</span>
+                <div className="interaction-item" style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: '6px'
+                }}>
+                  <span className="interaction-label" style={{
+                    fontSize: '12px',
+                    color: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
+                    fontWeight: '500'
+                  }}>
+                    Focused:
+                  </span>
+                  <span className="interaction-value" style={{
+                    fontSize: '12px',
+                    color: isDarkMode ? '#ffffff' : '#333333',
+                    fontWeight: '600'
+                  }}>
+                    {hoveredNode}
+                  </span>
                 </div>
               )}
+              
               {selectedNode && (
-                <div className="interaction-item">
-                  <span className="interaction-label">Selected:</span>
-                  <span className="interaction-value">{selectedNode}</span>
+                <div className="interaction-item" style={{
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}>
+                  <span className="interaction-label" style={{
+                    fontSize: '12px',
+                    color: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
+                    fontWeight: '500'
+                  }}>
+                    Selected:
+                  </span>
+                  <span className="interaction-value" style={{
+                    fontSize: '12px',
+                    color: isDarkMode ? '#ffffff' : '#333333',
+                    fontWeight: '600'
+                  }}>
+                    {selectedNode}
+                  </span>
                 </div>
               )}
-                         </div>
-           )}
-           </div>
-         </div>
-       )}
+            </div>
+          )}
+          </div>
+        </div>
+      )}
       
       <ForceGraph3D
         graphData={networkData}
@@ -1270,6 +1536,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         enableNodeDrag={true}
         enableNavigationControls={true}
         enablePointerInteraction={true}
+        controlType={controlType}
 
         
         // Node styling for glowy modular particle cloud

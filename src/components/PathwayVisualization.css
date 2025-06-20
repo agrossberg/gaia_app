@@ -88,14 +88,20 @@ body.dark-mode .pathway-visualization {
 .node-info {
   background: var(--bg-secondary);
   backdrop-filter: blur(10px);
-  padding: 16px;
+  padding: 0;
   border-radius: 12px;
   box-shadow: 0 8px 32px var(--bg-primary);
   min-width: 250px;
   max-width: 350px;
   border: 1px solid var(--border-primary);
   animation: slideIn 0.3s ease-out;
-  user-select: none; /* Prevent text selection during drag */
+  user-select: none;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.node-info:active {
+  cursor: grabbing;
 }
 
 @keyframes slideIn {
@@ -355,4 +361,28 @@ body.dark-mode .pathway-visualization {
   .pathway-node:hover {
     transform: none;
   }
+}
+
+.popup-header {
+  cursor: grab;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.popup-header:active {
+  cursor: grabbing;
+}
+
+.popup-close {
+  transition: all 0.2s ease;
+  cursor: pointer !important;
+}
+
+.popup-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+body.light-mode .popup-close:hover {
+  background: rgba(0, 0, 0, 0.1);
 } 
