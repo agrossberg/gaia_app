@@ -3,66 +3,94 @@ import * as d3 from 'd3';
 import { PathwayData, OmicsType } from '../types';
 import './SankeyFlowDiagram.css';
 
-// Import d3-sankey using require to avoid TypeScript module resolution issues
-const d3Sankey = require('d3-sankey');
-
 interface SankeyFlowDiagramProps {
   data: PathwayData;
   drugData?: { [drugId: string]: PathwayData } | null;
-  selectedDrugs?: Set<string>;
   isDarkMode?: boolean;
 }
 
-// Enhanced interfaces with collapsible functionality
-interface SankeyNodeData {
+// Tree node interface for hierarchical structure
+interface TreeNode {
   id: string;
   name: string;
-  category: 'molecular' | 'cellular' | 'system';
+  category: 'molecular' | 'cellular' | 'tissue' | 'organ' | 'system' | 'behavior';
   level: number;
   value: number;
   color: string;
   drugEffect?: number;
-  // Collapsible tree properties
-  children?: string[]; // Store IDs of child nodes
-  parent?: string;
-  isExpanded?: boolean;
-  isVisible?: boolean;
+  children?: TreeNode[];
+  _children?: TreeNode[]; // For collapsed state
   depth?: number;
-  // Sankey layout properties (added by D3)
+  x?: number;
+  y?: number;
   x0?: number;
-  x1?: number;
   y0?: number;
-  y1?: number;
-  index?: number;
-}
-
-interface SankeyLinkData {
-  source: string | number;
-  target: string | number;
-  value: number;
-  drugEffect?: number;
-  // Collapsible properties
-  isVisible?: boolean;
-  // Sankey layout properties (added by D3)
-  width?: number;
-  index?: number;
-  y0?: number;
-  y1?: number;
+  pathway?: string; // Add pathway for filtering
 }
 
 const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
   data,
   drugData,
-  selectedDrugs = new Set(),
   isDarkMode = false
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+  const [selectedPathways, setSelectedPathways] = useState<Set<string>>(new Set(['all']));
+  const [isMultiSelect, setIsMultiSelect] = useState<boolean>(false);
+  const [selectedDrugs, setSelectedDrugs] = useState<Set<string>>(new Set());
 
-  // Process data into Sankey format with collapsible structure
-  const sankeyData = useMemo(() => {
+  const availableDrugs = useMemo(() => (drugData ? Object.keys(drugData) : []), [drugData]);
+
+  const handleDrugSelection = (drugId: string) => {
+    const newSelected = new Set(selectedDrugs);
+    if (newSelected.has(drugId)) {
+      newSelected.delete(drugId);
+    } else {
+      newSelected.add(drugId);
+    }
+    setSelectedDrugs(newSelected);
+  };
+
+  // Get unique pathways for filtering
+  const availablePathways = useMemo(() => {
+    const pathways = new Set<string>();
+    data.nodes.forEach(node => {
+      pathways.add(node.pathway);
+    });
+    return ['all', ...Array.from(pathways).sort()];
+  }, [data]);
+
+  // Handle pathway selection
+  const handlePathwaySelection = (pathway: string) => {
+    if (isMultiSelect) {
+      const newSelected = new Set(selectedPathways);
+      if (pathway === 'all') {
+        // If "all" is selected, clear other selections
+        newSelected.clear();
+        newSelected.add('all');
+      } else {
+        // Remove "all" if it was selected
+        newSelected.delete('all');
+        if (newSelected.has(pathway)) {
+          newSelected.delete(pathway);
+          // If no pathways selected, default to "all"
+          if (newSelected.size === 0) {
+            newSelected.add('all');
+          }
+        } else {
+          newSelected.add(pathway);
+        }
+      }
+      setSelectedPathways(newSelected);
+    } else {
+      // Single select mode
+      setSelectedPathways(new Set([pathway]));
+    }
+  };
+
+  // Process data into hierarchical tree structure
+  const treeData = useMemo(() => {
     // Helper functions
     function calculateDrugEffect(pathway: string, omicsType: OmicsType): number {
       if (!drugData || selectedDrugs.size === 0) return 0;
@@ -104,582 +132,444 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
       return colors[category] || '#888888';
     }
 
-    function getSystemColor(category: string): string {
+    function getTissueColor(category: string): string {
       const colors: Record<string, string> = {
-        'Cellular Metabolism': '#FECA57',
-        'Physiological Response': '#FF9FF3',
-        'Behavioral Output': '#54A0FF'
+        'Epithelial Tissue': '#FFD166',
+        'Connective Tissue': '#06D6A0',
+        'Muscle Tissue': '#118AB2',
+        'Nervous Tissue': '#EF476F',
       };
       return colors[category] || '#888888';
     }
 
-    function isRelatedToCategory(molecularName: string, category: string): boolean {
-      const relationships: Record<string, string[]> = {
-        'Energy Production': ['Glucose Metabolism', 'Lipid Metabolism', 'metabolites'],
-        'Protein Synthesis': ['Protein Synthesis', 'proteins', 'mRNA'],
-        'Signal Transduction': ['Signal Transduction', 'Cell Cycle', 'proteins'],
-        'Membrane Function': ['lipids', 'Transport']
+    function getOrganColor(category: string): string {
+      const colors: Record<string, string> = {
+        'Heart': '#FF9F1C',
+        'Lungs': '#FFBF69',
+        'Brain': '#FFFFFF',
+        'Liver': '#2EC4B6',
+        'Kidneys': '#20A4F3',
+        'Stomach': '#E71D36',
       };
-      
-      const keywords = relationships[category] || [];
-      return keywords.some((keyword: string) => molecularName.toLowerCase().includes(keyword.toLowerCase()));
+      return colors[category] || '#888888';
     }
 
-    function isRelatedToSystemCategory(cellularName: string, systemCategory: string): boolean {
-      const relationships: Record<string, string[]> = {
-        'Cellular Metabolism': ['Energy Production', 'Protein Synthesis'],
-        'Physiological Response': ['Signal Transduction', 'Membrane Function'],
-        'Behavioral Output': ['Signal Transduction', 'Energy Production']
+    function getSystemColor(category: string): string {
+      const colors: Record<string, string> = {
+        'Cardiovascular System': '#FECA57',
+        'Respiratory System': '#FF9FF3',
+        'Nervous System': '#54A0FF',
+        'Digestive System': '#57CC99',
+        'Excretory System': '#80ED99',
       };
-      
-      const keywords = relationships[systemCategory] || [];
-      return keywords.some((keyword: string) => cellularName.includes(keyword));
+      return colors[category] || '#888888';
     }
 
-    const nodes: SankeyNodeData[] = [];
-    const links: SankeyLinkData[] = [];
+    function getBehaviorColor(category: string): string {
+      const colors: Record<string, string> = {
+        'Hypertension': '#D9534F',
+        'Analgesia': '#5CB85C',
+        'Hypothermia': '#5BC0DE',
+        'Unconsciousness': '#337AB7',
+        'Hypotonia': '#F0AD4E',
+      };
+      return colors[category] || '#888888';
+    }
 
-    // Define the multi-scale hierarchy
-    const molecularNodes = new Map<string, number>();
+    // Filter nodes by selected pathways
+    const filteredNodes = selectedPathways.has('all') 
+      ? data.nodes 
+      : data.nodes.filter(node => selectedPathways.has(node.pathway));
 
-    // Group molecular data by pathway and omics type
-    data.nodes.forEach(node => {
-      const molecularKey = `${node.pathway}_${node.type}`;
-      const currentValue = molecularNodes.get(molecularKey) || 0;
-      molecularNodes.set(molecularKey, currentValue + (node.expression || 0.5));
+    // Group molecular data by omics type first, then by pathway
+    const molecularByType = new Map<OmicsType, Map<string, number>>();
+    
+    filteredNodes.forEach(node => {
+      if (!molecularByType.has(node.type)) {
+        molecularByType.set(node.type, new Map());
+      }
+      const pathwayMap = molecularByType.get(node.type)!;
+      const currentValue = pathwayMap.get(node.pathway) || 0;
+      pathwayMap.set(node.pathway, currentValue + (node.expression || 0.5));
     });
 
-    // Create molecular level nodes
-    let nodeIndex = 0;
-    molecularNodes.forEach((value, key) => {
-      const [pathway, omicsType] = key.split('_');
-      nodes.push({
-        id: `mol_${nodeIndex}`,
-        name: `${pathway} (${omicsType})`,
+    // Create molecular level nodes (4 main types)
+    const molecularNodes: TreeNode[] = [];
+    molecularByType.forEach((pathwayMap, omicsType) => {
+      const totalValue = Array.from(pathwayMap.values()).reduce((sum, val) => sum + val, 0);
+      const avgDrugEffect = Array.from(pathwayMap.entries()).reduce((sum, [pathway, value]) => 
+        sum + calculateDrugEffect(pathway, omicsType), 0) / pathwayMap.size;
+      
+      const molecularNode: TreeNode = {
+        id: `mol_${omicsType}`,
+        name: omicsType,
         category: 'molecular',
         level: 0,
-        value: value,
-        color: getOmicsColor(omicsType as OmicsType),
-        drugEffect: calculateDrugEffect(pathway, omicsType as OmicsType),
-        isExpanded: true,
-        isVisible: true,
-        depth: 0
-      });
-      nodeIndex++;
-    });
-
-    // Create cellular level nodes (group by broad categories)
-    const cellularCategories = ['Energy Production', 'Protein Synthesis', 'Signal Transduction', 'Membrane Function'];
-    cellularCategories.forEach(category => {
-      const relatedMolecular = nodes.filter(n => 
-        n.category === 'molecular' && isRelatedToCategory(n.name, category)
-      );
-      
-      if (relatedMolecular.length > 0) {
-        const totalValue = relatedMolecular.reduce((sum, n) => sum + n.value, 0);
-        const avgDrugEffect = relatedMolecular.reduce((sum, n) => sum + (n.drugEffect || 0), 0) / relatedMolecular.length;
-        
-        const cellularNode: SankeyNodeData = {
-          id: `cell_${nodeIndex}`,
-          name: category,
-          category: 'cellular',
+        value: totalValue,
+        color: getOmicsColor(omicsType),
+        drugEffect: avgDrugEffect,
+        children: Array.from(pathwayMap.entries()).map(([pathway, value]) => ({
+          id: `mol_${omicsType}_${pathway}`,
+          name: pathway, // Remove the omics type suffix
+          category: 'molecular',
           level: 1,
-          value: totalValue * 0.7, // Some loss in transition
-          color: getCellularColor(category),
-          drugEffect: avgDrugEffect * 0.8,
-          children: relatedMolecular.map(n => n.id),
-          isExpanded: true,
-          isVisible: true,
-          depth: 1
-        };
-        
-        nodes.push(cellularNode);
-        
-        // Create links from molecular to cellular
-        relatedMolecular.forEach(molNode => {
-          links.push({
-            source: molNode.id,
-            target: `cell_${nodeIndex}`,
-            value: molNode.value * 0.3,
-            drugEffect: molNode.drugEffect,
-            isVisible: true
-          });
+          value: value,
+          color: getOmicsColor(omicsType),
+          drugEffect: calculateDrugEffect(pathway, omicsType),
+          pathway: pathway
+        }))
+      };
+      molecularNodes.push(molecularNode);
+    });
+
+    const cellularCategories = ['Energy Production', 'Protein Synthesis', 'Signal Transduction', 'Membrane Function'];
+    const tissueCategories = ['Epithelial Tissue', 'Connective Tissue', 'Muscle Tissue', 'Nervous Tissue'];
+    const organCategories = ['Heart', 'Lungs', 'Brain', 'Liver', 'Kidneys', 'Stomach'];
+    const systemCategories = ['Cardiovascular System', 'Respiratory System', 'Nervous System', 'Digestive System', 'Excretory System'];
+    const behaviorCategories = ['Hypertension', 'Analgesia', 'Hypothermia', 'Unconsciousness', 'Hypotonia'];
+
+    molecularNodes.forEach(molNode => {
+      if (molNode.children) {
+        molNode.children.forEach(pathwayNode => {
+          // Find related cellular categories for this pathway
+          const relatedCellularCategories = cellularCategories.filter(category =>
+            pathwayNode.name.toLowerCase().includes(category.toLowerCase()) ||
+            (category === 'Energy Production' && pathwayNode.name.toLowerCase().includes('metabolism')) ||
+            (category === 'Protein Synthesis' && pathwayNode.name.toLowerCase().includes('protein')) ||
+            (category === 'Signal Transduction' && pathwayNode.name.toLowerCase().includes('signal')) ||
+            (category === 'Membrane Function' && pathwayNode.name.toLowerCase().includes('lipid'))
+          );
+
+          if (relatedCellularCategories.length > 0) {
+            pathwayNode.children = relatedCellularCategories.map(category => {
+              const cellularNode: TreeNode = {
+                id: `${pathwayNode.id}_cell_${category.replace(/\s/g, '')}`,
+                name: category,
+                category: 'cellular',
+                level: 2,
+                value: pathwayNode.value * 0.7,
+                color: getCellularColor(category),
+                drugEffect: (pathwayNode.drugEffect || 0) * 0.8,
+              };
+
+              // Find related tissue categories for this new cellular node
+              const relatedTissueCategories = tissueCategories.filter(tissueCategory =>
+                (tissueCategory === 'Epithelial Tissue' && (category === 'Protein Synthesis' || category === 'Signal Transduction' || category === 'Membrane Function')) ||
+                (tissueCategory === 'Connective Tissue' && (category === 'Protein Synthesis' || category === 'Membrane Function')) ||
+                (tissueCategory === 'Muscle Tissue' && category === 'Energy Production') ||
+                (tissueCategory === 'Nervous Tissue' && (category === 'Energy Production' || category === 'Signal Transduction'))
+              );
+              
+              if (relatedTissueCategories.length > 0) {
+                cellularNode.children = relatedTissueCategories.map(tissueCategory => {
+                  const tissueNode: TreeNode = {
+                    id: `${cellularNode.id}_tissue_${tissueCategory.replace(/\s/g, '')}`,
+                    name: tissueCategory,
+                    category: 'tissue',
+                    level: 3,
+                    value: cellularNode.value * 0.7,
+                    color: getTissueColor(tissueCategory),
+                    drugEffect: (cellularNode.drugEffect || 0) * 0.8,
+                  };
+
+                  // Find related organ categories for this new tissue node
+                  const relatedOrganCategories = organCategories.filter(organCategory =>
+                    (organCategory === 'Heart' && (tissueCategory === 'Connective Tissue' || tissueCategory === 'Muscle Tissue')) ||
+                    (organCategory === 'Lungs' && tissueCategory === 'Epithelial Tissue') ||
+                    (organCategory === 'Brain' && tissueCategory === 'Nervous Tissue') ||
+                    (organCategory === 'Liver' && (tissueCategory === 'Epithelial Tissue' || tissueCategory === 'Connective Tissue')) ||
+                    (organCategory === 'Kidneys' && (tissueCategory === 'Epithelial Tissue' || tissueCategory === 'Connective Tissue')) ||
+                    (organCategory === 'Stomach' && (tissueCategory === 'Epithelial Tissue' || tissueCategory === 'Muscle Tissue'))
+                  );
+
+                  if (relatedOrganCategories.length > 0) {
+                    tissueNode.children = relatedOrganCategories.map(organCategory => {
+                      const organNode: TreeNode = {
+                        id: `${tissueNode.id}_organ_${organCategory.replace(/\s/g, '')}`,
+                        name: organCategory,
+                        category: 'organ',
+                        level: 4,
+                        value: tissueNode.value * 0.5,
+                        color: getOrganColor(organCategory),
+                        drugEffect: (tissueNode.drugEffect || 0) * 0.6,
+                      };
+
+                      // Find related system categories for this new organ node
+                      const relatedSystemCategories = systemCategories.filter(sysCategory =>
+                        (sysCategory === 'Cardiovascular System' && organCategory === 'Heart') ||
+                        (sysCategory === 'Respiratory System' && organCategory === 'Lungs') ||
+                        (sysCategory === 'Nervous System' && organCategory === 'Brain') ||
+                        (sysCategory === 'Digestive System' && (organCategory === 'Liver' || organCategory === 'Stomach')) ||
+                        (sysCategory === 'Excretory System' && organCategory === 'Kidneys')
+                      );
+
+                      if (relatedSystemCategories.length > 0) {
+                        organNode.children = relatedSystemCategories.map(sysCategory => {
+                          const systemNode: TreeNode = {
+                            id: `${organNode.id}_sys_${sysCategory.replace(/\s/g, '')}`,
+                            name: sysCategory,
+                            category: 'system',
+                            level: 5,
+                            value: organNode.value * 0.5,
+                            color: getSystemColor(sysCategory),
+                            drugEffect: (organNode.drugEffect || 0) * 0.6,
+                          };
+                          
+                          if (selectedDrugs.size > 0) {
+                            const relatedBehaviorCategories = behaviorCategories.filter(behaviorCategory =>
+                              (behaviorCategory === 'Hypertension' && sysCategory === 'Cardiovascular System') ||
+                              (behaviorCategory === 'Analgesia' && sysCategory === 'Nervous System') ||
+                              (behaviorCategory === 'Hypothermia' && sysCategory === 'Nervous System') ||
+                              (behaviorCategory === 'Unconsciousness' && sysCategory === 'Nervous System') ||
+                              (behaviorCategory === 'Hypotonia' && sysCategory === 'Nervous System')
+                            );
+
+                            if (relatedBehaviorCategories.length > 0) {
+                              systemNode.children = relatedBehaviorCategories.map(behaviorCategory => {
+                                const behaviorNode: TreeNode = {
+                                  id: `${systemNode.id}_behav_${behaviorCategory.replace(/\s/g, '')}`,
+                                  name: behaviorCategory,
+                                  category: 'behavior',
+                                  level: 6,
+                                  value: systemNode.value * 0.5,
+                                  color: getBehaviorColor(behaviorCategory),
+                                  drugEffect: (systemNode.drugEffect || 0) * 0.6,
+                                };
+                                return behaviorNode;
+                              });
+                            }
+                          }
+                          return systemNode;
+                        });
+                      }
+                      return organNode;
+                    });
+                  }
+                  return tissueNode;
+                });
+              }
+              return cellularNode;
+            });
+          }
         });
-        
-        nodeIndex++;
       }
     });
 
-    // Create system level nodes
-    const systemCategories = ['Cellular Metabolism', 'Physiological Response', 'Behavioral Output'];
-    systemCategories.forEach(category => {
-      const relatedCellular = nodes.filter(n => 
-        n.category === 'cellular' && isRelatedToSystemCategory(n.name, category)
-      );
-      
-      if (relatedCellular.length > 0) {
-        const totalValue = relatedCellular.reduce((sum, n) => sum + n.value, 0);
-        const avgDrugEffect = relatedCellular.reduce((sum, n) => sum + (n.drugEffect || 0), 0) / relatedCellular.length;
-        
-        const systemNode: SankeyNodeData = {
-          id: `sys_${nodeIndex}`,
-          name: category,
-          category: 'system',
-          level: 2,
-          value: totalValue * 0.5, // Further reduction
-          color: getSystemColor(category),
-          drugEffect: avgDrugEffect * 0.6,
-          children: relatedCellular.map(n => n.id),
-          isExpanded: true,
-          isVisible: true,
-          depth: 2
-        };
-        
-        nodes.push(systemNode);
-        
-        // Create links from cellular to system
-        relatedCellular.forEach(cellNode => {
-          links.push({
-            source: cellNode.id,
-            target: `sys_${nodeIndex}`,
-            value: cellNode.value * 0.4,
-            drugEffect: cellNode.drugEffect,
-            isVisible: true
-          });
-        });
-        
-        nodeIndex++;
-      }
-    });
+    // Create root node that connects molecular to cellular to system
+    const rootNode: TreeNode = {
+      id: 'root',
+      name: 'Biological Flow',
+      category: 'molecular',
+      level: -1,
+      value: 0,
+      color: '#888888',
+      children: molecularNodes
+    };
 
-    return { nodes, links };
-  }, [data, drugData, selectedDrugs]);
-
-  // Function to handle node collapse/expand
-  const handleNodeClick = (nodeId: string) => {
-    const newCollapsedNodes = new Set(collapsedNodes);
-    if (newCollapsedNodes.has(nodeId)) {
-      newCollapsedNodes.delete(nodeId);
-    } else {
-      newCollapsedNodes.add(nodeId);
-    }
-    setCollapsedNodes(newCollapsedNodes);
-  };
-
-  // Filter visible nodes and links based on collapsed state
-  const visibleData = useMemo(() => {
-    const visibleNodes = sankeyData.nodes.filter(node => {
-      if (node.level === 0) return true; // Always show molecular nodes
-      
-      // Check if parent is collapsed
-      const parentNode = sankeyData.nodes.find(n => n.children?.includes(node.id));
-      if (parentNode && collapsedNodes.has(parentNode.id)) {
-        return false;
-      }
-      
-      return true;
-    });
-
-    const visibleLinks = sankeyData.links.filter(link => {
-      const sourceNode = visibleNodes.find(n => n.id === link.source);
-      const targetNode = visibleNodes.find(n => n.id === link.target);
-      return sourceNode && targetNode;
-    });
-
-    return { nodes: visibleNodes, links: visibleLinks };
-  }, [sankeyData, collapsedNodes]);
+    return rootNode;
+  }, [data, drugData, selectedDrugs, selectedPathways]);
 
   useEffect(() => {
-    if (!svgRef.current || visibleData.nodes.length === 0) return;
+    if (!svgRef.current || !treeData) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    // Much larger dimensions for better readability
-    const containerWidth = 1800; // Increased width further
-    const containerHeight = 1400; // Keep height
-    const margin = { 
-      top: 120,
-      right: 120,
-      bottom: 120,
-      left: 250 // Much larger left margin for labels and brackets
-    };
-    const width = containerWidth - margin.left - margin.right;
-    const height = containerHeight - margin.top - margin.bottom;
+    // Chart dimensions
+    const width = 2000; // Increased width for more levels
+    const marginTop = 20;
+    const marginRight = 20;
+    const marginBottom = 20;
+    const marginLeft = 300; // More space for labels
 
-    // Set SVG dimensions
-    svg.attr('width', containerWidth).attr('height', containerHeight);
+    // Create hierarchical data structure
+    const root = d3.hierarchy<TreeNode>(treeData);
+    
+    // Tree spacing
+    const dx = 22; // Slightly reduced vertical spacing to fit more levels
+    const dy = (width - marginRight - marginLeft) / (1 + root.height);
 
-    // Create main group (no zoom behavior - just static positioning)
-    const g = svg.append('g')
-      .attr('transform', `translate(${margin.left}, ${margin.top})`);
+    // Define the tree layout
+    const tree = d3.tree<TreeNode>().nodeSize([dx, dy]);
+    const diagonal = d3.linkHorizontal().x((d: any) => d.y).y((d: any) => d.x);
 
-    // Create Sankey layout with larger node spacing
-    const sankeyLayout = d3Sankey.sankey()
-      .nodeWidth(25) // Wider nodes
-      .nodePadding(25) // More padding between nodes
-      .extent([[1, 1], [width - 1, height - 5]]);
+    // Create the SVG container
+    svg.attr('width', width)
+       .attr('height', dx)
+       .attr('viewBox', [-marginLeft, -marginTop, width, dx])
+       .attr('style', `max-width: 100%; height: auto; font: 12px sans-serif; user-select: none; background: transparent;`);
 
-    // Create a mapping from node IDs to indices
-    const nodeIdToIndex = new Map<string, number>();
-    visibleData.nodes.forEach((node, index) => {
-      nodeIdToIndex.set(node.id, index);
-    });
+    const gLink = svg.append('g')
+        .attr('fill', 'none')
+        .attr('stroke', isDarkMode ? '#ffffff' : '#555')
+        .attr('stroke-opacity', 0.4)
+        .attr('stroke-width', 1.5);
 
-    // Convert string IDs to numeric indices for D3 Sankey
-    const processedLinks = visibleData.links.map(link => ({
-      ...link,
-      source: typeof link.source === 'string' ? nodeIdToIndex.get(link.source) ?? 0 : link.source,
-      target: typeof link.target === 'string' ? nodeIdToIndex.get(link.target) ?? 0 : link.target
-    }));
+    const gNode = svg.append('g')
+        .attr('cursor', 'pointer')
+        .attr('pointer-events', 'all');
 
-    // Process the data through the Sankey layout
-    const sankeyGraph = sankeyLayout({
-      nodes: visibleData.nodes.map(d => ({ ...d })),
-      links: processedLinks
-    });
+    // Update function for tree transitions
+    function update(event: any, source: any) {
+      const duration = event?.altKey ? 2500 : 250;
+      const nodes = root.descendants().reverse();
+      const links = root.links();
 
-    // Create links
-    const links = g.append('g')
-      .attr('class', 'sankey-links')
-      .selectAll('path')
-      .data(sankeyGraph.links)
-      .enter()
-      .append('path')
-      .attr('d', d3Sankey.sankeyLinkHorizontal())
-      .attr('stroke', (d: any) => {
-        const linkData = d as SankeyLinkData;
-        if (selectedDrugs.size > 0 && linkData.drugEffect && linkData.drugEffect > 0.1) {
-          return d3.interpolateRdYlBu(1 - Math.min(linkData.drugEffect * 2, 1));
-        }
-        return isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
-      })
-      .attr('stroke-width', (d: any) => {
-        const linkData = d as SankeyLinkData;
-        return Math.max(2, linkData.width || 0); // Thicker lines
-      })
-      .attr('fill', 'none')
-      .attr('opacity', 0.7)
-      .style('cursor', 'pointer');
+      // Compute the new tree layout
+      tree(root);
 
-    // Create nodes with collapsible functionality
-    const nodes = g.append('g')
-      .attr('class', 'sankey-nodes')
-      .selectAll('g')
-      .data(sankeyGraph.nodes)
-      .enter()
-      .append('g')
-      .attr('class', 'node-group')
-      .style('cursor', 'pointer')
-      .on('click', function(event: any, d: any) {
-        const nodeData = d as SankeyNodeData;
-        if (nodeData.children && nodeData.children.length > 0) {
-          handleNodeClick(nodeData.id);
-        }
+      let left = root;
+      let right = root;
+      root.eachBefore((node: any) => {
+        if ((node.x as number) < (left.x as number)) left = node;
+        if ((node.x as number) > (right.x as number)) right = node;
       });
 
-    // Add node rectangles
-    nodes.append('rect')
-      .attr('x', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return nodeData.x0 || 0;
-      })
-      .attr('y', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return nodeData.y0 || 0;
-      })
-      .attr('height', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return (nodeData.y1 || 0) - (nodeData.y0 || 0);
-      })
-      .attr('width', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return (nodeData.x1 || 0) - (nodeData.x0 || 0);
-      })
-      .attr('fill', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        if (selectedDrugs.size > 0 && nodeData.drugEffect && nodeData.drugEffect > 0.05) {
-          const intensity = Math.min(nodeData.drugEffect * 3, 1);
-          return d3.interpolateReds(0.3 + intensity * 0.7);
-        }
-        return nodeData.color;
-      })
-      .attr('stroke', isDarkMode ? '#ffffff' : '#000000')
-      .attr('stroke-width', 2) // Thicker borders
-      .attr('class', 'node-rect');
+      const height = (right.x as number) - (left.x as number) + marginTop + marginBottom;
 
-    // Add collapse/expand indicators for nodes with children
-    nodes.filter((d: any) => {
-      const nodeData = d as SankeyNodeData;
-      return !!(nodeData.children && nodeData.children.length > 0);
-    })
-    .append('circle')
-      .attr('cx', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return (nodeData.x1 || 0) + 20; // Further out
-      })
-      .attr('cy', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return ((nodeData.y0 || 0) + (nodeData.y1 || 0)) / 2;
-      })
-      .attr('r', 12) // Larger circles
-      .attr('fill', isDarkMode ? '#ffffff' : '#000000')
-      .attr('stroke', isDarkMode ? '#ffffff' : '#000000')
-      .attr('stroke-width', 2)
-      .attr('class', 'collapse-indicator')
-      .on('click', function(event: any, d: any) {
-        event.stopPropagation();
-        const nodeData = d as SankeyNodeData;
-        handleNodeClick(nodeData.id);
-      });
+      const transition = svg.transition()
+          .duration(duration)
+          .attr('height', height)
+          .attr('viewBox', `${-marginLeft} ${(left.x as number) - marginTop} ${width} ${height}`);
 
-    // Add +/- symbols to collapse indicators
-    nodes.filter((d: any) => {
-      const nodeData = d as SankeyNodeData;
-      return !!(nodeData.children && nodeData.children.length > 0);
-    })
-    .append('text')
-      .attr('x', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return (nodeData.x1 || 0) + 20;
-      })
-      .attr('y', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return ((nodeData.y0 || 0) + (nodeData.y1 || 0)) / 2;
-      })
-      .attr('text-anchor', 'middle')
-      .attr('dominant-baseline', 'middle')
-      .attr('fill', isDarkMode ? '#000000' : '#ffffff')
-      .attr('font-size', '16px') // Larger font
-      .attr('font-weight', 'bold')
-      .attr('class', 'collapse-symbol')
-      .text((d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return collapsedNodes.has(nodeData.id) ? '+' : '-';
-      })
-      .on('click', function(event: any, d: any) {
-        event.stopPropagation();
-        const nodeData = d as SankeyNodeData;
-        handleNodeClick(nodeData.id);
-      });
+      // Update the nodes
+      const node = gNode.selectAll('g')
+        .data(nodes, (d: any) => d.id);
 
-    // Add molecular category labels (sideways, facing toward plot)
-    const molecularCategories = [
-      { name: 'Transcript', color: '#9FE2BF', filter: (n: SankeyNodeData) => n.name.toLowerCase().includes('mrna') || n.name.toLowerCase().includes('transcript') },
-      { name: 'Protein', color: '#CCCCFF', filter: (n: SankeyNodeData) => n.name.toLowerCase().includes('protein') },
-      { name: 'Lipid', color: '#DFFF00', filter: (n: SankeyNodeData) => n.name.toLowerCase().includes('lipid') },
-      { name: 'Metabolite', color: '#FF7F50', filter: (n: SankeyNodeData) => n.name.toLowerCase().includes('metabolite') }
-    ];
+      // Enter any new nodes at the parent's previous position
+      const nodeEnter = node.enter().append('g')
+          .attr('transform', (d: any) => `translate(${source.y0},${source.x0})`)
+          .attr('fill-opacity', 0)
+          .attr('stroke-opacity', 0)
+          .on('click', (event: any, d: any) => {
+            d.children = d.children ? null : d._children;
+            update(event, d);
+          });
 
-    // Group molecular nodes by type and add category labels
-    const molecularNodes = sankeyGraph.nodes.filter((n: any) => (n as SankeyNodeData).level === 0);
-    const molecularGroups = molecularCategories.map(category => {
-      const nodesInCategory = molecularNodes.filter((n: any) => category.filter(n as SankeyNodeData));
-      
-      if (nodesInCategory.length > 0) {
-        const minY = d3.min(nodesInCategory, (n: any) => n.y0) || 0;
-        const maxY = d3.max(nodesInCategory, (n: any) => n.y1) || 0;
-        const avgY = (minY + maxY) / 2;
-        return { ...category, avgY, minY, maxY, nodes: nodesInCategory };
-      }
-      return null;
-    }).filter(Boolean);
-
-    // Add sideways category labels with brackets
-    molecularGroups.forEach((category) => {
-      if (category && category.nodes.length > 0) {
-        // --- BRACKET ---
-        const bracketX = -80; // X position for the bracket, further left
-        const bracketExtension = 15; // How far the bracket extends horizontally
-        const bracketPath = `
-          M ${bracketX + bracketExtension},${category.minY} 
-          L ${bracketX},${category.minY} 
-          L ${bracketX},${category.maxY} 
-          L ${bracketX + bracketExtension},${category.maxY}
-        `;
-
-        g.append('path')
-          .attr('d', bracketPath)
-          .attr('stroke', isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)')
-          .attr('stroke-width', 2)
-          .attr('fill', 'none');
-
-        // --- LABEL ---
-        const labelX = -120; // X position for the label, further left from bracket
-        g.append('text')
-          .attr('transform', `translate(${labelX}, ${category.avgY}) rotate(-90)`)
-          .attr('text-anchor', 'middle')
-          .attr('dominant-baseline', 'central')
-          .attr('fill', category.color)
-          .attr('font-size', '18px') // Larger font
-          .attr('font-weight', 'bold')
-          .attr('font-family', 'Arial, sans-serif')
-          .style('text-shadow', '1px 1px 2px rgba(0, 0, 0, 0.5)')
-          .style('pointer-events', 'none')
-          .text(category.name);
-      }
-    });
-
-    // Update node labels to remove category info from molecular level
-    g.append('g')
-      .attr('class', 'sankey-labels')
-      .selectAll('text')
-      .data(sankeyGraph.nodes)
-      .enter()
-      .append('text')
-      .attr('x', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return ((nodeData.x0 || 0) + (nodeData.x1 || 0)) / 2;
-      })
-      .attr('y', (d: any) => {
-        const nodeData = d as SankeyNodeData;
-        return ((nodeData.y0 || 0) + (nodeData.y1 || 0)) / 2;
-      })
-      .attr('text-anchor', 'middle')
-      .attr('dominant-baseline', 'middle')
-      .attr('fill', isDarkMode ? '#ffffff' : '#000000')
-      .attr('font-size', '14px')
-      .attr('font-weight', 'bold')
-      .attr('font-family', 'Arial, sans-serif')
-      .style('pointer-events', 'none')
-      .style('text-shadow', '1px 1px 2px rgba(0, 0, 0, 0.5)')
-      .text((d: any) => {
-        const nodeData = d as SankeyNodeData;
-        if (nodeData.level === 0) {
-          // For molecular level, extract just the pathway name without the type
-          const match = nodeData.name.match(/^(.*?)\s*\([^)]+\)/);
-          return match ? match[1] : nodeData.name;
-        }
-        return nodeData.name;
-      });
-
-    // Add level labels with larger text
-    const levelLabels = ['Molecular Level', 'Cellular Level', 'System Level'];
-    levelLabels.forEach((label, i) => {
-      g.append('text')
-        .attr('x', (width / 3) * i + (width / 6))
-        .attr('y', -40) // Further up
-        .attr('text-anchor', 'middle')
-        .attr('fill', isDarkMode ? '#ffffff' : '#000000')
-        .attr('font-size', '20px') // Larger font
-        .attr('font-weight', 'bold')
-        .attr('font-family', 'Arial, sans-serif')
-        .style('text-shadow', '1px 1px 2px rgba(0, 0, 0, 0.5)')
-        .text(label);
-    });
-
-    // Add title with larger text
-    svg.append('text')
-      .attr('class', 'sankey-title')
-      .attr('x', containerWidth / 2)
-      .attr('y', 40)
-      .attr('text-anchor', 'middle')
-      .attr('fill', isDarkMode ? '#ffffff' : '#000000')
-      .style('font-size', '24px') // Larger title
-      .style('font-weight', 'bold')
-      .style('font-family', 'Arial, sans-serif')
-      .style('text-shadow', '1px 1px 2px rgba(0, 0, 0, 0.5)')
-      .text(selectedDrugs.size > 0 ? 'Interactive Multi-Scale Drug Effect Flow' : 'Interactive Multi-Scale Biological Flow');
-
-    // Add instructions with larger text
-    svg.append('text')
-      .attr('x', containerWidth / 2)
-      .attr('y', containerHeight - 30)
-      .attr('text-anchor', 'middle')
-      .attr('fill', isDarkMode ? '#ffffff' : '#000000')
-      .style('font-size', '14px') // Larger instructions
-      .style('opacity', 0.8)
-      .style('font-family', 'Arial, sans-serif')
-      .text('Click nodes with children to expand/collapse • Use scroll to navigate');
-
-    // Add tooltip interactions
-    nodes
-      .on('mouseover', function(event: any, d: any) {
-        const nodeData = d as SankeyNodeData;
-        d3.select(this).select('.node-rect')
-          .attr('opacity', 1)
-          .attr('stroke-width', 3);
-
-        if (tooltipRef.current) {
-          const tooltip = d3.select(tooltipRef.current);
-          tooltip.style('opacity', 1)
-            .style('left', (event.pageX + 10) + 'px')
-            .style('top', (event.pageY - 10) + 'px')
-            .html(`
-              <strong>${nodeData.name}</strong><br/>
-              Category: ${nodeData.category}<br/>
-              Value: ${nodeData.value.toFixed(2)}<br/>
-              Level: ${nodeData.level}
-              ${nodeData.children && nodeData.children.length > 0 ? 
-                `<br/>Children: ${nodeData.children.length} • Click to ${collapsedNodes.has(nodeData.id) ? 'expand' : 'collapse'}` : ''}
-              ${selectedDrugs.size > 0 && nodeData.drugEffect !== undefined ? 
-                `<br/>Drug Effect: ${(nodeData.drugEffect * 100).toFixed(1)}%` : ''}
-            `);
-        }
-      })
-      .on('mousemove', function(event: any) {
-        if (tooltipRef.current) {
-          d3.select(tooltipRef.current)
-            .style('left', (event.pageX + 10) + 'px')
-            .style('top', (event.pageY - 10) + 'px');
-        }
-      })
-      .on('mouseout', function() {
-        d3.select(this).select('.node-rect')
-          .attr('opacity', 1)
+      // Add circles for nodes
+      nodeEnter.append('circle')
+          .attr('r', (d: any) => d.data.level === -1 ? 0 : 4)
+          .attr('fill', (d: any) => {
+            if (d.data.level === -1) return 'transparent';
+            if (selectedDrugs.size > 0 && d.data.drugEffect && d.data.drugEffect > 0.05) {
+              const intensity = Math.min(d.data.drugEffect * 3, 1);
+              return d3.interpolateReds(0.3 + intensity * 0.7);
+            }
+            return d.data.color;
+          })
+          .attr('stroke', isDarkMode ? '#ffffff' : '#000000')
           .attr('stroke-width', 2);
 
-        if (tooltipRef.current) {
-          d3.select(tooltipRef.current).style('opacity', 0);
-        }
+      // Add text labels
+      nodeEnter.append('text')
+          .attr('dy', '0.31em')
+          .attr('x', (d: any) => d._children ? -8 : 8)
+          .attr('text-anchor', (d: any) => d._children ? 'end' : 'start')
+          .text((d: any) => d.data.name)
+          .attr('stroke-linejoin', 'round')
+          .attr('stroke-width', 3)
+          .attr('stroke', isDarkMode ? '#000000' : '#ffffff')
+          .attr('fill', isDarkMode ? '#ffffff' : '#000000')
+          .attr('paint-order', 'stroke')
+          .style('font-size', '12px')
+          .style('font-weight', 'bold');
+
+      // Transition nodes to their new position
+      ((node as any).merge(nodeEnter as any)).transition(transition as any)
+          .attr('transform', (d: any) => `translate(${d.y},${d.x})`)
+          .attr('fill-opacity', 1)
+          .attr('stroke-opacity', 1);
+
+      // Transition exiting nodes to the parent's new position
+      (node.exit() as any).transition(transition as any).remove()
+          .attr('transform', (d: any) => `translate(${source.y},${source.x})`)
+          .attr('fill-opacity', 0)
+          .attr('stroke-opacity', 0);
+
+      // Update the links
+      const link = gLink.selectAll('path')
+        .data(links, (d: any) => d.target.id);
+
+      // Enter any new links at the parent's previous position
+      const linkEnter = link.enter().append('path')
+          .attr('d', (d: any) => {
+            const o = {x: source.x0, y: source.y0};
+            return diagonal({source: o, target: o} as any);
+          });
+
+      // Transition links to their new position
+      ((link as any).merge(linkEnter as any)).transition(transition as any)
+          .attr('d', diagonal);
+
+      // Transition exiting links to the parent's new position
+      (link.exit() as any).transition(transition as any).remove()
+          .attr('d', (d: any) => {
+            const o = {x: source.x, y: source.y};
+            return diagonal({source: o, target: o} as any);
+          });
+
+      // Stash the old positions for transition
+      root.eachBefore((d: any) => {
+        d.x0 = d.x;
+        d.y0 = d.y;
       });
+    }
 
-    links
-      .on('mouseover', function(event: any, d: any) {
-        const linkData = d as SankeyLinkData;
-        d3.select(this)
-          .attr('opacity', 1)
-          .attr('stroke-width', (linkData.width || 0) + 3);
+    // Initialize the tree
+    (root as any).x0 = dy / 2;
+    (root as any).y0 = 0;
+    root.descendants().forEach((d: any, i) => {
+      d.id = i;
+      d._children = d.children;
+      // Start with all levels expanded to show the full hierarchical structure
+      // Only collapse very deep levels (level > 6) to keep the view manageable
+      if (d.depth > 6) d.children = null;
+    });
 
-        if (tooltipRef.current) {
-          const tooltip = d3.select(tooltipRef.current);
-          
-          // Get source and target node data
-          const sourceNode = sankeyGraph.nodes.find((n: any) => (n as SankeyNodeData).id === linkData.source) as SankeyNodeData;
-          const targetNode = sankeyGraph.nodes.find((n: any) => (n as SankeyNodeData).id === linkData.target) as SankeyNodeData;
-          
-          tooltip.style('opacity', 1)
-            .style('left', (event.pageX + 10) + 'px')
-            .style('top', (event.pageY - 10) + 'px')
-            .html(`
-              <strong>Flow Connection</strong><br/>
-              From: ${sourceNode?.name || 'Unknown'}<br/>
-              To: ${targetNode?.name || 'Unknown'}<br/>
-              Flow Value: ${linkData.value.toFixed(2)}
-              ${selectedDrugs.size > 0 && linkData.drugEffect !== undefined ? 
-                `<br/>Drug Effect: ${(linkData.drugEffect * 100).toFixed(1)}%` : ''}
-            `);
-        }
-      })
-      .on('mousemove', function(event: any) {
-        if (tooltipRef.current) {
-          d3.select(tooltipRef.current)
-            .style('left', (event.pageX + 10) + 'px')
-            .style('top', (event.pageY - 10) + 'px');
-        }
-      })
-      .on('mouseout', function(event: any, d: any) {
-        const linkData = d as SankeyLinkData;
-        d3.select(this)
-          .attr('opacity', 0.7)
-          .attr('stroke-width', Math.max(2, linkData.width || 0));
+    update(null, root);
 
-        if (tooltipRef.current) {
-          d3.select(tooltipRef.current).style('opacity', 0);
-        }
-      });
+    // Add tooltip interactions
+    gNode.selectAll('g').on('mouseover', function(event: any, d: any) {
+      if (d.data.level === -1) return;
+      
+      d3.select(this).select('circle')
+        .attr('r', 6)
+        .attr('stroke-width', 3);
 
-  }, [visibleData, isDarkMode, selectedDrugs, collapsedNodes]);
+      if (tooltipRef.current) {
+        const tooltip = d3.select(tooltipRef.current);
+        tooltip.style('opacity', 1)
+          .style('left', (event.pageX + 10) + 'px')
+          .style('top', (event.pageY - 10) + 'px')
+          .html(`
+            <strong>${d.data.name}</strong><br/>
+            Category: ${d.data.category}<br/>
+            Level: ${d.data.level}<br/>
+            Value: ${d.data.value.toFixed(2)}
+            ${d.data.pathway ? `<br/>Pathway: ${d.data.pathway}` : ''}
+            ${selectedDrugs.size > 0 && d.data.drugEffect !== undefined ? 
+              `<br/>Drug Effect: ${(d.data.drugEffect * 100).toFixed(1)}%` : ''}
+          `);
+      }
+    })
+    .on('mousemove', function(event: any) {
+      if (tooltipRef.current) {
+        d3.select(tooltipRef.current)
+          .style('left', (event.pageX + 10) + 'px')
+          .style('top', (event.pageY - 10) + 'px');
+      }
+    })
+    .on('mouseout', function() {
+      d3.select(this).select('circle')
+        .attr('r', 4)
+        .attr('stroke-width', 2);
+
+      if (tooltipRef.current) {
+        d3.select(tooltipRef.current).style('opacity', 0);
+      }
+    });
+
+  }, [treeData, isDarkMode, selectedDrugs]);
 
   return (
     <div className="sankey-flow-container">
@@ -687,16 +577,100 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
         <div className="control-info">
           <h3>
             {selectedDrugs.size > 0 
-              ? `Interactive Multi-Scale Drug Effects (${selectedDrugs.size} drugs selected)`
-              : 'Interactive Multi-Scale Biological Flow'
+              ? `Interactive Hierarchical Drug Effects (${selectedDrugs.size} drugs selected)`
+              : 'Interactive Hierarchical Biological Flow'
             }
           </h3>
           <p>
             {selectedDrugs.size > 0 
-              ? 'Click nodes with children to expand/collapse sections. Visualizing how drug effects propagate from molecular to cellular to system levels.'
-              : 'Click nodes with children to expand/collapse sections. Flow of biological information from molecular pathways to cellular functions to system-level outcomes.'
+              ? 'Click nodes to expand/collapse sections. Visualizing hierarchical drug effects from molecular types to cellular functions to system outcomes.'
+              : 'Click nodes to expand/collapse sections. Hierarchical flow from molecular types to cellular functions to system-level outcomes.'
             }
           </p>
+        </div>
+        
+        {/* Pathway Filter */}
+        <div className="pathway-filter">
+          <div className="filter-header">
+            <label htmlFor="pathway-select">Filter by Pathway:</label>
+            <div className="filter-toggle">
+              <button
+                type="button"
+                className={`toggle-btn ${!isMultiSelect ? 'active' : ''}`}
+                onClick={() => {
+                  setIsMultiSelect(false);
+                  setSelectedPathways(new Set(['all']));
+                }}
+              >
+                Single Select
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${isMultiSelect ? 'active' : ''}`}
+                onClick={() => setIsMultiSelect(true)}
+              >
+                Multi Select
+              </button>
+            </div>
+          </div>
+          
+          <div className="pathway-options">
+            {isMultiSelect ? (
+              // Multi-select checkboxes
+              <div className="checkbox-group">
+                {availablePathways.map(pathway => (
+                  <label key={pathway} className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={selectedPathways.has(pathway)}
+                      onChange={() => handlePathwaySelection(pathway)}
+                      className="pathway-checkbox"
+                    />
+                    <span className="checkbox-text">
+                      {pathway === 'all' ? 'All Pathways' : pathway}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              // Single-select dropdown
+              <select 
+                id="pathway-select"
+                value={Array.from(selectedPathways)[0] || 'all'}
+                onChange={(e) => handlePathwaySelection(e.target.value)}
+                className="pathway-select"
+              >
+                {availablePathways.map(pathway => (
+                  <option key={pathway} value={pathway}>
+                    {pathway === 'all' ? 'All Pathways' : pathway}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          
+          {isMultiSelect && selectedPathways.size > 0 && !selectedPathways.has('all') && (
+            <div className="selected-count">
+              {selectedPathways.size} pathway{selectedPathways.size !== 1 ? 's' : ''} selected
+            </div>
+          )}
+        </div>
+        
+        <div className="drug-filter">
+          <label>Toggle Drug Effects:</label>
+          <div className="checkbox-group">
+            {availableDrugs.map(drugId => (
+              <label key={drugId} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selectedDrugs.has(drugId)}
+                  onChange={() => handleDrugSelection(drugId)}
+                  className="pathway-checkbox"
+                />
+                <span className="checkbox-text">{drugId}</span>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
       
@@ -704,8 +678,6 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
         <svg
           ref={svgRef}
           className="sankey-flow-diagram"
-          width="1800"
-          height="1400"
         />
         
         <div

@@ -683,7 +683,6 @@ function App() {
             <SankeyFlowDiagram 
               data={baselineData}
               drugData={drugPerturbedData}
-              selectedDrugs={selectedDrugs}
               isDarkMode={isDarkMode}
             />
           </div>
