@@ -304,21 +304,26 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         let x, y, z;
         
         if (viewMode === 'grid') {
-          // Grid layout - 3D rectangular positioning
+          // Grid layout - Create distinct 3D rectangular grids for each layer
           const gridSize = Math.ceil(Math.sqrt(level.count));
           const row = Math.floor(i / gridSize);
           const col = i % gridSize;
           
-          // Create a 3D grid with proper spacing
-          const spacing = level.spread / gridSize;
-          x = (col - gridSize / 2) * spacing;
-          z = (row - gridSize / 2) * spacing;
-          y = level.y;
+          // Calculate optimal spacing based on layer size and screen space
+          const maxGridWidth = 800; // Maximum grid width
+          const spacing = Math.min(maxGridWidth / gridSize, 60); // Limit spacing for readability
           
-          // Add slight randomization to avoid perfect grid rigidity
-          x += (Math.random() - 0.5) * spacing * 0.2;
-          z += (Math.random() - 0.5) * spacing * 0.2;
-          y += (Math.random() - 0.5) * 10;
+          // Center the grid around origin
+          const gridOffsetX = (gridSize - 1) * spacing / 2;
+          const gridOffsetZ = (gridSize - 1) * spacing / 2;
+          
+          x = col * spacing - gridOffsetX;
+          z = row * spacing - gridOffsetZ;
+          y = level.y; // Fixed Y position creates distinct layers
+          
+          // Add minimal randomization to make it more organic while keeping grid structure
+          x += (Math.random() - 0.5) * 5;
+          z += (Math.random() - 0.5) * 5;
         } else {
           // Organic layout (original positioning)
           if (level.name === 'systems' || level.name === 'organs') {
@@ -427,15 +432,89 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       }
     });
 
-    // Create connections with drug-specific emphasis
+    // Create connections - different logic for grid vs organic modes
     const connectionDensity = selectedDrug && drugConfig ? drugConfig.connectionDensity : 0.5;
     
-    hierarchyLevels.forEach((level, levelIndex) => {
-      if (!visibleLayers.has(level.name)) return;
+    if (viewMode === 'grid') {
+      // Grid Mode: Only vertical connections between layers + horizontal within layers
       
-      if (levelIndex < hierarchyLevels.length - 1) {
-        const nextLevel = hierarchyLevels[levelIndex + 1];
-        if (!visibleLayers.has(nextLevel.name)) return;
+      // 1. Vertical connections between adjacent layers
+      hierarchyLevels.forEach((level, levelIndex) => {
+        if (!visibleLayers.has(level.name)) return;
+        
+        if (levelIndex < hierarchyLevels.length - 1) {
+          const nextLevel = hierarchyLevels[levelIndex + 1];
+          if (!visibleLayers.has(nextLevel.name)) return;
+          
+          const currentNodes = levelNodes[level.name];
+          const nextNodes = levelNodes[nextLevel.name];
+          
+          // Each node connects to 2-4 nodes in the layer below
+          currentNodes.forEach(sourceId => {
+            const connectionsPerNode = Math.min(4, Math.max(2, Math.floor(nextNodes.length / currentNodes.length)));
+            
+            for (let i = 0; i < connectionsPerNode; i++) {
+              const targetId = nextNodes[Math.floor(Math.random() * nextNodes.length)];
+              
+              links.push({
+                source: sourceId,
+                target: targetId,
+                color: isDarkMode ? `rgba(100, 150, 255, 0.6)` : `rgba(25, 118, 210, 0.8)`,
+                width: 1.5
+              });
+            }
+          });
+        }
+      });
+      
+      // 2. Horizontal connections within each layer (grid neighbors)
+      hierarchyLevels.forEach((level) => {
+        if (!visibleLayers.has(level.name)) return;
+        
+        const layerNodes = levelNodes[level.name];
+        const gridSize = Math.ceil(Math.sqrt(level.count));
+        
+        // Connect grid neighbors (adjacent nodes in the grid)
+        layerNodes.forEach((nodeId, index) => {
+          const row = Math.floor(index / gridSize);
+          const col = index % gridSize;
+          
+          // Connect to right neighbor
+          if (col < gridSize - 1) {
+            const rightIndex = row * gridSize + (col + 1);
+            if (rightIndex < layerNodes.length) {
+              links.push({
+                source: nodeId,
+                target: layerNodes[rightIndex],
+                color: isDarkMode ? `rgba(120, 120, 150, 0.3)` : `rgba(100, 100, 100, 0.4)`,
+                width: 0.8
+              });
+            }
+          }
+          
+          // Connect to bottom neighbor
+          if (row < gridSize - 1) {
+            const bottomIndex = (row + 1) * gridSize + col;
+            if (bottomIndex < layerNodes.length) {
+              links.push({
+                source: nodeId,
+                target: layerNodes[bottomIndex],
+                color: isDarkMode ? `rgba(120, 120, 150, 0.3)` : `rgba(100, 100, 100, 0.4)`,
+                width: 0.8
+              });
+            }
+          }
+        });
+      });
+      
+    } else {
+      // Organic Mode: Original complex connection logic
+      hierarchyLevels.forEach((level, levelIndex) => {
+        if (!visibleLayers.has(level.name)) return;
+        
+        if (levelIndex < hierarchyLevels.length - 1) {
+          const nextLevel = hierarchyLevels[levelIndex + 1];
+          if (!visibleLayers.has(nextLevel.name)) return;
         
         if (level.name === 'systems') {
           // Systems connect to organs - every system connects to most organs
@@ -598,6 +677,33 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         }
       }
     }
+    
+    // Intra-module connections for organic mode
+    hierarchyLevels.forEach((level, levelIndex) => {
+      if (!visibleLayers.has(level.name)) return;
+      
+      for (let moduleId = 0; moduleId < level.modules; moduleId++) {
+        const moduleNodeIds = moduleNodes[level.name][moduleId];
+        const connectionDensity = selectedDrug ? 0.25 : 0.2;
+        const intraConnections = Math.min(moduleNodeIds.length * connectionDensity, 15);
+        
+        for (let i = 0; i < intraConnections; i++) {
+          const node1Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
+          const node2Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
+          
+          if (node1Id !== node2Id) {
+            links.push({
+              source: node1Id,
+              target: node2Id,
+              color: isDarkMode ? `rgba(120, 120, 150, 0.2)` : `rgba(100, 100, 100, 0.3)`,
+              width: 0.4
+            });
+          }
+        }
+      }
+    });
+
+    } // Close organic mode section
 
     // Safety check: Ensure no nodes are left unconnected
     const connectedNodes = new Set<string>();
@@ -773,6 +879,84 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     
     return baseCurvature * 0.3 + randomFactor * 0.2;
   }, []);
+
+  // Create 3D grid planes for grid mode
+  const createGridPlanes = useCallback(() => {
+    if (viewMode !== 'grid') return null;
+
+    const gridGroup = new THREE.Group();
+    const hierarchyLevels = [
+      { name: 'systems', count: 4, modules: 1, y: 400, spread: 300, size: 35, color: '#FF6B35', showLabels: true, labels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'] },
+      { name: 'organs', count: 8, modules: 2, y: 300, spread: 400, size: 18, color: '#4FB3D9', showLabels: true, labels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Lung', 'Skin', 'Muscle', 'Bone'] },
+      { name: 'tissues', count: 20, modules: 4, y: 200, spread: 500, size: 12, color: '#5DADE2', showLabels: false, labels: [] },
+      { name: 'cellular', count: 50, modules: 8, y: 100, spread: 600, size: 8, color: '#52C41A', showLabels: false, labels: [] },
+      { name: 'subcellular', count: 150, modules: 15, y: 50, spread: 700, size: 6, color: '#FAAD14', showLabels: false, labels: [] },
+      { name: 'molecular', count: particleCount, modules: 30, y: 0, spread: 800, size: 4, color: '#FF7A45', showLabels: false, labels: [] },
+      { name: 'atomic', count: Math.floor(particleCount * 0.3), modules: 20, y: -50, spread: 600, size: 2, color: '#87CEEB', showLabels: false, labels: [] }
+    ];
+
+    hierarchyLevels.forEach((level: any, index: number) => {
+      if (!visibleLayers.has(level.name)) return;
+
+      // Create grid plane for each level
+      const gridSize = Math.ceil(Math.sqrt(level.count));
+      const maxGridWidth = 800;
+      const spacing = Math.min(maxGridWidth / gridSize, 60);
+      const planeSize = (gridSize - 1) * spacing + 100; // Add padding
+
+      // Create wireframe plane
+      const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize, gridSize, gridSize);
+      const planeMaterial = new THREE.MeshBasicMaterial({ 
+        color: isDarkMode ? 0x333366 : 0x666699,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.3
+      });
+      
+      const gridPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+      gridPlane.position.set(0, level.y, 0);
+      gridPlane.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+      
+      // Add level label
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (context) {
+        const fontSize = 32;
+        const padding = 16;
+        const text = level.name.toUpperCase();
+        
+        context.font = `bold ${fontSize}px Arial`;
+        const textWidth = context.measureText(text).width;
+        
+        canvas.width = textWidth + padding * 2;
+        canvas.height = fontSize + padding * 2;
+        
+        context.font = `bold ${fontSize}px Arial`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+        context.fillText(text, canvas.width / 2, canvas.height / 2);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const labelMaterial = new THREE.SpriteMaterial({ 
+          map: texture,
+          transparent: true,
+          alphaTest: 0.1
+        });
+        
+        const label = new THREE.Sprite(labelMaterial);
+        const scale = 0.3;
+        label.scale.set(canvas.width * scale, canvas.height * scale, 1);
+        label.position.set(planeSize / 2 + 50, level.y + 20, 0);
+        
+        gridGroup.add(label);
+      }
+      
+      gridGroup.add(gridPlane);
+    });
+
+    return gridGroup;
+  }, [viewMode, visibleLayers, isDarkMode, particleCount]);
 
   // Node three object function - creates persistent 3D labels for systems
   const nodeThreeObject = useCallback((node: any) => {
@@ -964,6 +1148,28 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     };
   }, [onMouseMove, onMouseUp]);
 
+  // Update grid planes when view mode changes
+  useEffect(() => {
+    if (graphRef.current) {
+      const scene = graphRef.current.scene();
+      
+      // Remove existing grid planes
+      const existingGrid = scene.getObjectByName('gridPlanes');
+      if (existingGrid) {
+        scene.remove(existingGrid);
+      }
+      
+      // Add new grid planes if in grid mode
+      if (viewMode === 'grid') {
+        const gridPlanes = createGridPlanes();
+        if (gridPlanes) {
+          gridPlanes.name = 'gridPlanes';
+          scene.add(gridPlanes);
+        }
+      }
+    }
+  }, [viewMode, createGridPlanes, visibleLayers]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -992,14 +1198,14 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             onClick={() => setViewMode('organic')}
             title="Organic cloud-like layout"
           >
-            🌊 Organic
+            ◯
           </button>
           <button 
             className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
             onClick={() => setViewMode('grid')}
             title="3D grid hierarchical layout"
           >
-            📦 Grid
+            ⬜
           </button>
         </div>
       </div>
@@ -1146,6 +1352,33 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         onNodeClick={handleNodeClick}
         onNodeHover={handleNodeHover}
         onLinkHover={() => {}}
+        
+        // Add grid planes when engine stops
+        onEngineStop={() => {
+          if (graphRef.current && viewMode === 'grid') {
+            const scene = graphRef.current.scene();
+            
+            // Remove existing grid planes
+            const existingGrid = scene.getObjectByName('gridPlanes');
+            if (existingGrid) {
+              scene.remove(existingGrid);
+            }
+            
+            // Add new grid planes
+            const gridPlanes = createGridPlanes();
+            if (gridPlanes) {
+              gridPlanes.name = 'gridPlanes';
+              scene.add(gridPlanes);
+            }
+          } else if (graphRef.current && viewMode === 'organic') {
+            // Remove grid planes in organic mode
+            const scene = graphRef.current.scene();
+            const existingGrid = scene.getObjectByName('gridPlanes');
+            if (existingGrid) {
+              scene.remove(existingGrid);
+            }
+          }
+        }}
         
         // Reference for camera control
         ref={graphRef}
