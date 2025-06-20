@@ -173,7 +173,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             color: '#CCCCFF', // 2D network explorer protein color
             opacity: 0.9,
             spread: 300,
-            showLabels: false,
+            showLabels: true,
             labels: drugConfig.organLabels
           },
           { 
@@ -237,7 +237,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             color: '#CCCCFF', // 2D network explorer protein color
             opacity: 0.9,
             spread: 280,
-            showLabels: false,
+            showLabels: true,
             labels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Lung', 'Blood']
           },
           { 
@@ -802,14 +802,13 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
   const createSingleGridPlane = useCallback((levelName: string) => {
     if (viewMode !== 'grid') return null;
 
+    // Use the same hierarchy levels as the network data generation
     const hierarchyLevels = [
-      { name: 'systems', count: 4, modules: 1, y: 400, spread: 800, size: 35, color: '#FF6B35', showLabels: true, labels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'] },
-      { name: 'organs', count: 8, modules: 2, y: 280, spread: 400, size: 18, color: '#4FB3D9', showLabels: true, labels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Lung', 'Skin', 'Muscle', 'Bone'] },
-      { name: 'tissues', count: 20, modules: 4, y: 160, spread: 500, size: 12, color: '#5DADE2', showLabels: false, labels: [] },
-      { name: 'cellular', count: 50, modules: 8, y: 40, spread: 600, size: 12, color: '#52C41A', showLabels: false, labels: [] },
-      { name: 'subcellular', count: 150, modules: 15, y: 50, spread: 700, size: 8, color: '#FAAD14', showLabels: false, labels: [] },
-      { name: 'molecular', count: particleCount, modules: 30, y: 0, spread: 800, size: 6, color: '#FF7A45', showLabels: false, labels: [] },
-      { name: 'atomic', count: Math.floor(particleCount * 0.3), modules: 20, y: -50, spread: 600, size: 2, color: '#87CEEB', showLabels: false, labels: [] }
+      { name: 'systems', count: 4, modules: 1, y: 400, spread: 800, size: 35, color: '#E86659', showLabels: true, labels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'] },
+      { name: 'organs', count: 8, modules: 2, y: 280, spread: 400, size: 18, color: '#CCCCFF', showLabels: true, labels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Lung', 'Skin', 'Muscle', 'Bone'] },
+      { name: 'tissues', count: 20, modules: 4, y: 160, spread: 500, size: 12, color: '#FF7F50', showLabels: false, labels: [] },
+      { name: 'cellular', count: 50, modules: 8, y: 40, spread: 600, size: 12, color: '#9FE2BF', showLabels: false, labels: [] },
+      { name: 'molecular', count: particleCount, modules: 30, y: -80, spread: 800, size: 6, color: '#DFFF00', showLabels: false, labels: [] }
     ];
 
     const level = hierarchyLevels.find(l => l.name === levelName);
@@ -841,8 +840,8 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     if (context) {
-      const fontSize = 32;
-      const padding = 16;
+      const fontSize = 40; // Increased from 32 for better visibility
+      const padding = 20; // Increased padding
       const text = level.name.toUpperCase();
       
       context.font = `bold ${fontSize}px Arial`;
@@ -854,7 +853,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       context.font = `bold ${fontSize}px Arial`;
       context.textAlign = 'center';
       context.textBaseline = 'middle';
-      context.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+      context.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.9)'; // Increased opacity
       context.fillText(text, canvas.width / 2, canvas.height / 2);
       
       const texture = new THREE.CanvasTexture(canvas);
@@ -865,9 +864,9 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       });
       
       const label = new THREE.Sprite(labelMaterial);
-      const scale = 0.3;
+      const scale = 0.4; // Increased from 0.3 for better visibility
       label.scale.set(canvas.width * scale, canvas.height * scale, 1);
-      label.position.set(planeSize / 2 + 50, level.y + 20, 0);
+      label.position.set(planeSize / 2 + 80, level.y + 30, 0); // Adjusted position for better visibility
       
       levelGroup.add(label);
     }
@@ -881,7 +880,8 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     if (!graphRef.current || viewMode !== 'grid') return;
 
     const scene = graphRef.current.scene();
-    const hierarchyLevels = ['systems', 'organs', 'tissues', 'cellular', 'subcellular', 'molecular', 'atomic'];
+    // Use the same layer names as the network data generation
+    const hierarchyLevels = ['systems', 'organs', 'tissues', 'cellular', 'molecular'];
 
     hierarchyLevels.forEach(levelName => {
       const existingGrid = scene.getObjectByName(`grid-${levelName}`);
@@ -902,7 +902,10 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
 
   // Node three object function - creates persistent 3D labels for systems
   const nodeThreeObject = useCallback((node: any) => {
-    const shouldShowLabel = node.levelName === 'systems' && node.name && node.name.length > 0;
+    // Show labels for systems nodes and any node with a name
+    const shouldShowLabel = (node.levelName === 'systems' || node.levelName === 'organs') && 
+                           node.name && node.name.length > 0;
+    
     if (!shouldShowLabel) {
       // Return default sphere for non-system nodes with importance-based sizing
       const radius = node.val || 2;
@@ -1100,7 +1103,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         updateGridPlanes();
       } else {
         // Remove all grid planes in organic mode
-        const hierarchyLevels = ['systems', 'organs', 'tissues', 'cellular', 'subcellular', 'molecular', 'atomic'];
+        const hierarchyLevels = ['systems', 'organs', 'tissues', 'cellular', 'molecular'];
         hierarchyLevels.forEach(levelName => {
           const existingGrid = scene.getObjectByName(`grid-${levelName}`);
           if (existingGrid) {
@@ -1110,6 +1113,33 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       }
     }
   }, [viewMode, updateGridPlanes, visibleLayers]);
+
+  // Reset physics simulation when layers are toggled to prevent nodes flying off
+  useEffect(() => {
+    if (graphRef.current && viewMode !== 'grid') {
+      // Reset the force simulation to prevent nodes from flying off
+      const simulation = graphRef.current.d3Force();
+      if (simulation) {
+        // Stop current simulation
+        simulation.stop();
+        
+        // Reset velocities to prevent flying off
+        simulation.nodes().forEach((node: any) => {
+          if (node.vx !== undefined) node.vx = 0;
+          if (node.vy !== undefined) node.vy = 0;
+          if (node.vz !== undefined) node.vz = 0;
+          
+          // Also reset any accumulated forces
+          if (node.fx !== undefined && !node.fx) node.fx = undefined;
+          if (node.fy !== undefined && !node.fy) node.fy = undefined;
+          if (node.fz !== undefined && !node.fz) node.fz = undefined;
+        });
+        
+        // Restart simulation with proper alpha and cooling
+        simulation.alpha(0.3).alphaDecay(0.01).velocityDecay(0.3).restart();
+      }
+    }
+  }, [visibleLayers, viewMode]);
 
   // Keyboard shortcuts
   useEffect(() => {
