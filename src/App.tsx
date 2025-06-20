@@ -158,6 +158,33 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Browser back button functionality
+  useEffect(() => {
+    const handlePopState = () => {
+      // Get the view from URL or default to dashboard
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewFromUrl = urlParams.get('view') as DashboardView;
+      const validView = VISUALIZATION_TILES.find(tile => tile.id === viewFromUrl)?.id || 'dashboard';
+      setCurrentView(validView);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Update URL when view changes
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (currentView === 'dashboard') {
+      url.searchParams.delete('view');
+    } else {
+      url.searchParams.set('view', currentView);
+    }
+    
+    // Update URL without triggering popstate
+    window.history.replaceState({}, '', url.toString());
+  }, [currentView]);
+
   // Apply theme class to document body
   useEffect(() => {
     document.body.className = isDarkMode ? 'dark-mode' : 'light-mode';
@@ -295,11 +322,29 @@ function App() {
     setVisibleLayers(newVisibleLayers);
   };
 
-  // Dashboard tile click handler
+  // Dashboard tile click handler with browser history
   const handleTileClick = (tileId: DashboardView) => {
     const tile = VISUALIZATION_TILES.find(t => t.id === tileId);
     if (tile?.status === 'active' || tile?.status === 'preview') {
+      // Add to browser history
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', tileId);
+      window.history.pushState({}, '', url.toString());
       setCurrentView(tileId);
+    }
+  };
+
+  // Dashboard navigation handler
+  const handleDashboardClick = () => {
+    if (currentView === 'dashboard') {
+      // Reset the page by reloading
+      window.location.reload();
+    } else {
+      // Go back to dashboard
+      const url = new URL(window.location.href);
+      url.searchParams.delete('view');
+      window.history.pushState({}, '', url.toString());
+      setCurrentView('dashboard');
     }
   };
 
@@ -751,14 +796,7 @@ function App() {
             <h1>GAIA</h1>
           </div>
           <div className="header-center">
-            {currentView !== 'dashboard' && (
-              <button 
-                className="back-to-dashboard-btn"
-                onClick={() => setCurrentView('dashboard')}
-              >
-                ← Dashboard
-              </button>
-            )}
+            {/* Removed separate back button */}
           </div>
           <div className="header-right">
             <div className="header-nav">
@@ -769,7 +807,13 @@ function App() {
               >
               </button>
               <span className="nav-item">Setup</span>
-              <span className="nav-item active">Dashboard</span>
+              <span 
+                className={`nav-item ${currentView !== 'dashboard' ? 'dashboard-nav' : ''}`}
+                onClick={handleDashboardClick}
+                style={{ cursor: 'pointer' }}
+              >
+                Dashboard
+              </span>
               <span className="nav-item">Sign-In</span>
             </div>
           </div>

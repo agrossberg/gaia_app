@@ -186,6 +186,15 @@ body.light-mode .theme-toggle::before {
   content: '◑';
 }
 
+/* Back to dashboard button styling (uses theme-toggle class) */
+.theme-toggle:not([title*="Switch"]) {
+  margin-right: 16px;
+}
+
+.theme-toggle:not([title*="Switch"])::before {
+  content: '←';
+}
+
 .nav-item {
   font-size: 14px;
   font-weight: 500;
@@ -207,6 +216,29 @@ body.light-mode .theme-toggle::before {
   color: var(--bg-primary);
   background: var(--text-primary);
   border: 1px solid var(--text-primary);
+}
+
+/* Dashboard navigation with back arrow hover effect */
+.nav-item.dashboard-nav {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.nav-item.dashboard-nav::before {
+  content: '←';
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: all 0.2s ease;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.nav-item.dashboard-nav:hover::before {
+  opacity: 1;
+  left: -16px;
 }
 
 .app-content {
@@ -575,39 +607,49 @@ body.light-mode .theme-toggle::before {
   margin: 0 0 24px 0;
 }
 
-.back-to-dashboard {
-  background: var(--accent-primary);
+/* Button styles consolidated into view-mode-btn class */
+
+/* Style for 3D network view mode buttons (separate from back to dashboard) */
+.hierarchical-network .view-mode-btn {
+  background: transparent;
   color: var(--text-primary);
-  border: 1px solid var(--accent-secondary);
-  border-radius: 20px;
-  padding: 12px 24px;
-  font-size: 14px;
-  font-weight: 500;
+  border: 2px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 16px;
+  font-weight: bold;
   cursor: pointer;
   transition: all 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  margin: 0 4px;
+  min-width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.back-to-dashboard:hover,
-.back-to-dashboard-btn:hover {
-  background: var(--accent-secondary);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+.hierarchical-network .view-mode-btn:hover {
+  border-color: var(--accent-primary);
+  background: var(--border-secondary);
+  transform: none;
+  box-shadow: none;
 }
 
-.back-to-dashboard-btn {
+.hierarchical-network .view-mode-btn.active {
   background: var(--accent-primary);
+  border-color: var(--accent-secondary);
+  color: var(--bg-primary);
+}
+
+.hierarchical-network .view-mode-btn.reset-btn {
+  background: transparent;
+  border: 2px solid var(--border-primary);
   color: var(--text-primary);
-  border: 1px solid var(--accent-secondary);
-  border-radius: 20px;
-  padding: 12px 24px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+}
+
+.hierarchical-network .view-mode-btn.reset-btn:hover {
+  border-color: var(--accent-primary);
+  background: var(--border-secondary);
 }
 
 .app-footer {
@@ -818,12 +860,7 @@ body.light-mode .theme-toggle::before {
     transition-duration: 0.01ms !important;
   }
 
-  .dashboard-tile.clickable:hover {
-    transform: none;
-  }
-
-  .back-to-dashboard:hover,
-  .back-to-dashboard-btn:hover {
+  .hierarchical-network .view-mode-btn:hover {
     transform: none;
   }
 }

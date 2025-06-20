@@ -152,10 +152,10 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             count: 4, // Always 4 medical conditions
             modules: 1,
             y: 400, 
-            size: 25, // Smaller, more readable size
+            size: 22, // Smaller, more readable size
             color: '#E86659', // Network explorer coral red
             opacity: 0.95,
-            spread: 500, // More spread out for better label visibility
+            spread: 800, // Much more spread out for better label visibility
             showLabels: true,
             labels: drugConfig.systemLabels
           },
@@ -188,7 +188,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             count: drugConfig.cellularCount,
             modules: Math.ceil(drugConfig.cellularCount / 12),
             y: 40, 
-            size: 4,
+            size: 6,
             color: '#9FE2BF', // 2D network explorer mRNA color
             opacity: 0.8,
             spread: 200,
@@ -200,7 +200,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             count: drugConfig.molecularCount, // Much fewer, but highly connected
             modules: Math.ceil(drugConfig.molecularCount / 15),
             y: -80, 
-            size: 2.5,
+            size: 4,
             color: '#DFFF00', // 2D network explorer lipid color
             opacity: 0.8,
             spread: 150,
@@ -216,10 +216,10 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             count: 4,
             modules: 1,
             y: 350, 
-            size: 25, // Smaller, more readable size
+            size: 22, // Smaller, more readable size
             color: '#E86659', // Network explorer coral red
             opacity: 0.95,
-            spread: 500, // More spread out for better label visibility
+            spread: 800, // Much more spread out for better label visibility
             showLabels: true,
             labels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'] // Always these labels
           },
@@ -252,7 +252,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             count: 50,
             modules: 8,
             y: 50, 
-            size: 3,
+            size: 6,
             color: '#9FE2BF', // 2D network explorer mRNA color
             opacity: 0.8,
             spread: 180,
@@ -264,7 +264,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             count: 80, // Much fewer floating particles
             modules: 10,
             y: -50, 
-            size: 2.0,
+            size: 4,
             color: '#DFFF00', // 2D network explorer lipid color
             opacity: 0.7,
             spread: 140,
@@ -423,7 +423,9 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           importance: importance,
           x: x,
           y: y,
-          z: z
+          z: z,
+          // Fix positions in grid mode to prevent physics movement
+          ...(viewMode === 'grid' && { fx: x, fy: y, fz: z })
         };
 
         nodes.push(node);
@@ -435,275 +437,186 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     // Create connections - different logic for grid vs organic modes
     const connectionDensity = selectedDrug && drugConfig ? drugConfig.connectionDensity : 0.5;
     
-    if (viewMode === 'grid') {
-      // Grid Mode: Only vertical connections between layers + horizontal within layers
-      
-      // 1. Vertical connections between adjacent layers
-      hierarchyLevels.forEach((level, levelIndex) => {
-        if (!visibleLayers.has(level.name)) return;
-        
-        if (levelIndex < hierarchyLevels.length - 1) {
-          const nextLevel = hierarchyLevels[levelIndex + 1];
-          if (!visibleLayers.has(nextLevel.name)) return;
-          
-          const currentNodes = levelNodes[level.name];
-          const nextNodes = levelNodes[nextLevel.name];
-          
-          // Each node connects to 2-4 nodes in the layer below
-          currentNodes.forEach(sourceId => {
-            const connectionsPerNode = Math.min(4, Math.max(2, Math.floor(nextNodes.length / currentNodes.length)));
-            
-            for (let i = 0; i < connectionsPerNode; i++) {
-              const targetId = nextNodes[Math.floor(Math.random() * nextNodes.length)];
-              
-              links.push({
-                source: sourceId,
-                target: targetId,
-                color: isDarkMode ? `rgba(100, 150, 255, 0.6)` : `rgba(25, 118, 210, 0.8)`,
-                width: 1.5
-              });
-            }
-          });
+    // --- Create Inter-Layer Connections ---
+    hierarchyLevels.forEach((level, levelIndex) => {
+      if (!visibleLayers.has(level.name)) return;
+
+      // Find the next visible level to connect to
+      let nextVisibleLevel = null;
+      for (let i = levelIndex + 1; i < hierarchyLevels.length; i++) {
+        if (visibleLayers.has(hierarchyLevels[i].name)) {
+          nextVisibleLevel = hierarchyLevels[i];
+          break;
         }
-      });
+      }
       
-      // 2. Horizontal connections within each layer (grid neighbors)
-      hierarchyLevels.forEach((level) => {
-        if (!visibleLayers.has(level.name)) return;
-        
-        const layerNodes = levelNodes[level.name];
-        const gridSize = Math.ceil(Math.sqrt(level.count));
-        
-        // Connect grid neighbors (adjacent nodes in the grid)
-        layerNodes.forEach((nodeId, index) => {
-          const row = Math.floor(index / gridSize);
-          const col = index % gridSize;
-          
-          // Connect to right neighbor
-          if (col < gridSize - 1) {
-            const rightIndex = row * gridSize + (col + 1);
-            if (rightIndex < layerNodes.length) {
-              links.push({
-                source: nodeId,
-                target: layerNodes[rightIndex],
-                color: isDarkMode ? `rgba(120, 120, 150, 0.3)` : `rgba(100, 100, 100, 0.4)`,
-                width: 0.8
-              });
-            }
-          }
-          
-          // Connect to bottom neighbor
-          if (row < gridSize - 1) {
-            const bottomIndex = (row + 1) * gridSize + col;
-            if (bottomIndex < layerNodes.length) {
-              links.push({
-                source: nodeId,
-                target: layerNodes[bottomIndex],
-                color: isDarkMode ? `rgba(120, 120, 150, 0.3)` : `rgba(100, 100, 100, 0.4)`,
-                width: 0.8
-              });
-            }
+      if (!nextVisibleLevel) return; // No lower layer to connect to
+      
+      const nextLevel = nextVisibleLevel;
+      const currentNodes = levelNodes[level.name];
+      const nextNodes = levelNodes[nextLevel.name];
+
+      if (!currentNodes || !nextNodes || currentNodes.length === 0 || nextNodes.length === 0) return;
+
+      if (viewMode === 'grid') {
+        // In Grid Mode, connect each node to a few below it
+        currentNodes.forEach(sourceId => {
+          const connectionsPerNode = Math.min(4, Math.max(2, Math.floor(nextNodes.length / currentNodes.length)));
+          for (let i = 0; i < connectionsPerNode; i++) {
+            const targetId = nextNodes[Math.floor(Math.random() * nextNodes.length)];
+            links.push({
+              source: sourceId,
+              target: targetId,
+              color: isDarkMode ? `rgba(100, 150, 255, 0.6)` : `rgba(25, 118, 210, 0.8)`,
+              width: 1.5
+            });
           }
         });
-      });
-      
-    } else {
-      // Organic Mode: Original complex connection logic
-      hierarchyLevels.forEach((level, levelIndex) => {
-        if (!visibleLayers.has(level.name)) return;
-        
-        if (levelIndex < hierarchyLevels.length - 1) {
-          const nextLevel = hierarchyLevels[levelIndex + 1];
-          if (!visibleLayers.has(nextLevel.name)) return;
-        
+      } else {
+        // In Organic Mode, use the more complex connection logic
         if (level.name === 'systems') {
-          // Systems connect to organs - every system connects to most organs
-          const currentLevelNodes = levelNodes[level.name];
-          
-          currentLevelNodes.forEach(systemNodeId => {
-            const organNodes = levelNodes['organs'] || [];
-            organNodes.forEach(organId => {
-              if (Math.random() < connectionDensity) {
-                links.push({
-                  source: systemNodeId,
-                  target: organId,
-                  color: isDarkMode ? `rgba(255, 107, 53, 0.7)` : `rgba(229, 81, 0, 0.9)`,
-                  width: 3.0
-                });
-              }
+          // Systems connect to organs and tissues
+          currentNodes.forEach(systemNodeId => {
+            (levelNodes['organs'] || []).forEach(organId => {
+              if (Math.random() < connectionDensity) links.push({ source: systemNodeId, target: organId, color: isDarkMode ? `rgba(255, 107, 53, 0.7)` : `rgba(229, 81, 0, 0.9)`, width: 3.0 });
             });
-            
-            // Connect to tissue nodes - drug-specific amounts
             const tissueNodes = levelNodes['tissues'] || [];
             const connectionsCount = selectedDrug ? Math.floor(tissueNodes.length * 0.4) : Math.floor(tissueNodes.length * 0.2);
-            for (let i = 0; i < Math.min(connectionsCount, tissueNodes.length); i++) {
+            for (let i = 0; i < connectionsCount; i++) {
               const targetId = tissueNodes[Math.floor(Math.random() * tissueNodes.length)];
-              links.push({
-                source: systemNodeId,
-                target: targetId,
-                color: isDarkMode ? `rgba(247, 147, 30, 0.5)` : `rgba(245, 124, 0, 0.7)`,
-                width: 2.0
-              });
+              if (targetId) links.push({ source: systemNodeId, target: targetId, color: isDarkMode ? `rgba(247, 147, 30, 0.5)` : `rgba(245, 124, 0, 0.7)`, width: 2.0 });
             }
           });
         } else if (level.name === 'organs') {
-          // Organs connect to tissues and cellular - drug-specific density
-          const currentLevelNodes = levelNodes[level.name];
-          
-          currentLevelNodes.forEach(organNodeId => {
+           // Organs connect to tissues and cellular
+          currentNodes.forEach(organNodeId => {
             const tissueNodes = levelNodes['tissues'] || [];
-            const connectionsCount = Math.floor(tissueNodes.length * connectionDensity * 0.3);
-            for (let i = 0; i < Math.min(connectionsCount, tissueNodes.length); i++) {
+            let connectionsCount = Math.floor(tissueNodes.length * connectionDensity * 0.3);
+            for (let i = 0; i < connectionsCount; i++) {
               const targetId = tissueNodes[Math.floor(Math.random() * tissueNodes.length)];
-              links.push({
-                source: organNodeId,
-                target: targetId,
-                color: isDarkMode ? `rgba(79, 179, 217, 0.6)` : `rgba(25, 118, 210, 0.8)`,
-                width: 1.5
-              });
+              if (targetId) links.push({ source: organNodeId, target: targetId, color: isDarkMode ? `rgba(79, 179, 217, 0.6)` : `rgba(25, 118, 210, 0.8)`, width: 1.5 });
             }
-            
-            // Connect to cellular layer - ensure good connectivity
             const cellularNodes = levelNodes['cellular'] || [];
-            const cellularConnections = Math.floor(cellularNodes.length * connectionDensity * 0.2);
-            for (let i = 0; i < Math.min(cellularConnections, cellularNodes.length); i++) {
+            connectionsCount = Math.floor(cellularNodes.length * connectionDensity * 0.2);
+             for (let i = 0; i < connectionsCount; i++) {
               const targetId = cellularNodes[Math.floor(Math.random() * cellularNodes.length)];
-              links.push({
-                source: organNodeId,
-                target: targetId,
-                color: isDarkMode ? `rgba(146, 208, 80, 0.5)` : `rgba(56, 142, 60, 0.7)`,
-                width: 1.0,
-                bundled: true,
-                bundleStrength: 0.6
-              });
+              if (targetId) links.push({ source: organNodeId, target: targetId, color: isDarkMode ? `rgba(146, 208, 80, 0.5)` : `rgba(56, 142, 60, 0.7)`, width: 1.0, bundled: true, bundleStrength: 0.6 });
             }
           });
         } else {
-          // Regular hierarchical connections for other layers - ensure molecular nodes are well connected
+          // Regular hierarchical connections for all other layers
           for (let currentModule = 0; currentModule < level.modules; currentModule++) {
             const currentModuleNodes = moduleNodes[level.name][currentModule];
             const targetModules = Math.min(3, nextLevel.modules);
-            
             for (let t = 0; t < targetModules; t++) {
               const targetModule = (currentModule * targetModules + t) % nextLevel.modules;
               const targetModuleNodes = moduleNodes[nextLevel.name][targetModule];
-              
-              currentModuleNodes.forEach(higherNodeId => {
-                // Ensure molecular nodes get more connections
-                const isMolecularTarget = nextLevel.name === 'molecular';
-                const baseConnections = isMolecularTarget ? 
-                  Math.max(2, Math.floor(targetModuleNodes.length / currentModuleNodes.length)) :
-                  Math.max(1, Math.floor(targetModuleNodes.length / currentModuleNodes.length / 2));
-                
-                const connectionsCount = Math.floor(baseConnections * connectionDensity);
-                
-                for (let i = 0; i < Math.min(connectionsCount, isMolecularTarget ? 5 : 3); i++) {
-                  const lowerNodeId = targetModuleNodes[Math.floor(Math.random() * targetModuleNodes.length)];
-                  
-                  const isMolecularConnection = level.name === 'cellular' || nextLevel.name === 'molecular';
-                  
-                  links.push({
-                    source: higherNodeId,
-                    target: lowerNodeId,
-                    color: isMolecularConnection ? 
-                      (isDarkMode ? `rgba(255, 192, 0, 0.4)` : `rgba(249, 168, 37, 0.6)`) : 
-                      (isDarkMode ? `rgba(255, 192, 0, 0.3)` : `rgba(249, 168, 37, 0.5)`),
-                    width: isMolecularConnection ? 0.4 : 0.5,
-                    bundled: isMolecularConnection,
-                    bundleStrength: isMolecularConnection ? 0.8 : 0.0
-                  });
-                }
-              });
+              if (currentModuleNodes && targetModuleNodes) {
+                currentModuleNodes.forEach(higherNodeId => {
+                  const isMolecularTarget = nextLevel.name === 'molecular';
+                  const baseConnections = isMolecularTarget ? Math.max(2, Math.floor(targetModuleNodes.length / currentModuleNodes.length)) : Math.max(1, Math.floor(targetModuleNodes.length / currentModuleNodes.length / 2));
+                  const connectionsCount = Math.floor(baseConnections * connectionDensity);
+                  for (let i = 0; i < connectionsCount; i++) {
+                    const lowerNodeId = targetModuleNodes[Math.floor(Math.random() * targetModuleNodes.length)];
+                    if (lowerNodeId) {
+                      const isMolecularConnection = level.name === 'cellular' || nextLevel.name === 'molecular';
+                      links.push({
+                        source: higherNodeId,
+                        target: lowerNodeId,
+                        color: isMolecularConnection ? (isDarkMode ? `rgba(255, 192, 0, 0.4)` : `rgba(249, 168, 37, 0.6)`) : (isDarkMode ? `rgba(255, 192, 0, 0.3)` : `rgba(249, 168, 37, 0.5)`),
+                        width: isMolecularConnection ? 0.4 : 0.5,
+                        bundled: isMolecularConnection,
+                        bundleStrength: isMolecularConnection ? 0.8 : 0.0
+                      });
+                    }
+                  }
+                });
+              }
             }
           }
         }
       }
     });
 
-    // Reduced intra-module connections
-    hierarchyLevels.forEach((level, levelIndex) => {
-      if (!visibleLayers.has(level.name)) return;
-      
-      for (let moduleId = 0; moduleId < level.modules; moduleId++) {
-        const moduleNodeIds = moduleNodes[level.name][moduleId];
-        const connectionDensity = selectedDrug ? 0.25 : 0.2; // Slightly higher for drug mode
-        const intraConnections = Math.min(moduleNodeIds.length * connectionDensity, 15);
-        
-        for (let i = 0; i < intraConnections; i++) {
-          const node1Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
-          const node2Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
-          
-          if (node1Id !== node2Id) {
+    // --- Create Intra-Layer Connections ---
+    if (viewMode === 'grid') {
+      // Horizontal connections for grid neighbors
+      hierarchyLevels.forEach((level) => {
+        if (!visibleLayers.has(level.name)) return;
+        const layerNodes = levelNodes[level.name];
+        if (!layerNodes || layerNodes.length === 0) return;
+        const gridSize = Math.ceil(Math.sqrt(level.count));
+        layerNodes.forEach((nodeId, index) => {
+          const row = Math.floor(index / gridSize);
+          const col = index % gridSize;
+          if (col < gridSize - 1) {
+            const rightIndex = row * gridSize + (col + 1);
+            if (rightIndex < layerNodes.length) links.push({ source: nodeId, target: layerNodes[rightIndex], color: isDarkMode ? `rgba(120, 120, 150, 0.3)` : `rgba(100, 100, 100, 0.4)`, width: 0.8 });
+          }
+          if (row < gridSize - 1) {
+            const bottomIndex = (row + 1) * gridSize + col;
+            if (bottomIndex < layerNodes.length) links.push({ source: nodeId, target: layerNodes[bottomIndex], color: isDarkMode ? `rgba(120, 120, 150, 0.3)` : `rgba(100, 100, 100, 0.4)`, width: 0.8 });
+          }
+        });
+      });
+    } else {
+      // Intra-module and bundled stream connections for organic mode
+      hierarchyLevels.forEach((level) => {
+        if (!visibleLayers.has(level.name)) return;
+        // Reduced intra-module connections
+        for (let moduleId = 0; moduleId < level.modules; moduleId++) {
+          const moduleNodeIds = moduleNodes[level.name][moduleId];
+          if (!moduleNodeIds || moduleNodeIds.length < 2) continue;
+          const intraConnections = Math.min(moduleNodeIds.length * (selectedDrug ? 0.25 : 0.2), 15);
+          for (let i = 0; i < intraConnections; i++) {
+            const node1Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
+            const node2Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
+            if (node1Id !== node2Id) links.push({ source: node1Id, target: node2Id, color: isDarkMode ? `rgba(120, 120, 150, 0.2)` : `rgba(100, 100, 100, 0.3)`, width: 0.4 });
+          }
+        }
+      });
+       // Fewer bundled molecular streams with drug emphasis
+      const streamCount = selectedDrug ? 100 : 60;
+      for (let i = 0; i < streamCount; i++) {
+        const level1 = Math.floor(Math.random() * hierarchyLevels.length);
+        const level2 = Math.floor(Math.random() * hierarchyLevels.length);
+        if (Math.abs(level1 - level2) >= 2 && Math.abs(level1 - level2) <= 4) {
+          const nodes1 = levelNodes[hierarchyLevels[level1].name];
+          const nodes2 = levelNodes[hierarchyLevels[level2].name];
+          if (nodes1 && nodes2 && nodes1.length > 0 && nodes2.length > 0) {
+            const node1Id = nodes1[Math.floor(Math.random() * nodes1.length)];
+            const node2Id = nodes2[Math.floor(Math.random() * nodes2.length)];
+            const isMolecularStream = (hierarchyLevels[level1].name === 'molecular' || hierarchyLevels[level2].name === 'molecular');
             links.push({
               source: node1Id,
               target: node2Id,
-              color: isDarkMode ? `rgba(120, 120, 150, 0.2)` : `rgba(100, 100, 100, 0.3)`,
-              width: 0.4
+              color: isMolecularStream ? (isDarkMode ? `rgba(120, 180, 255, 0.15)` : `rgba(63, 81, 181, 0.25)`) : (isDarkMode ? `rgba(80, 80, 110, 0.08)` : `rgba(117, 117, 117, 0.15)`),
+              width: isMolecularStream ? 0.2 : 0.3,
+              bundled: isMolecularStream,
+              bundleStrength: isMolecularStream ? 0.9 : 0.0
             });
           }
-        }
-      }
-    });
-
-    // Fewer bundled molecular streams with drug emphasis
-    const streamCount = selectedDrug ? 100 : 60; // More streams for drug mode
-    for (let i = 0; i < streamCount; i++) {
-      const level1 = Math.floor(Math.random() * hierarchyLevels.length);
-      const level2 = Math.floor(Math.random() * hierarchyLevels.length);
-      
-      if (Math.abs(level1 - level2) >= 2 && Math.abs(level1 - level2) <= 4) {
-        const nodes1 = levelNodes[hierarchyLevels[level1].name];
-        const nodes2 = levelNodes[hierarchyLevels[level2].name];
-        
-        if (nodes1 && nodes2 && nodes1.length > 0 && nodes2.length > 0) {
-          const node1Id = nodes1[Math.floor(Math.random() * nodes1.length)];
-          const node2Id = nodes2[Math.floor(Math.random() * nodes2.length)];
-          
-          const isMolecularStream = (
-            hierarchyLevels[level1].name === 'molecular' || 
-            hierarchyLevels[level2].name === 'molecular'
-          );
-          
-          links.push({
-            source: node1Id,
-            target: node2Id,
-            color: isMolecularStream ? 
-              (isDarkMode ? `rgba(120, 180, 255, 0.15)` : `rgba(63, 81, 181, 0.25)`) : 
-              (isDarkMode ? `rgba(80, 80, 110, 0.08)` : `rgba(117, 117, 117, 0.15)`),
-            width: isMolecularStream ? 0.2 : 0.3,
-            bundled: isMolecularStream,
-            bundleStrength: isMolecularStream ? 0.9 : 0.0
-          });
         }
       }
     }
-    
-    // Intra-module connections for organic mode
-    hierarchyLevels.forEach((level, levelIndex) => {
-      if (!visibleLayers.has(level.name)) return;
-      
-      for (let moduleId = 0; moduleId < level.modules; moduleId++) {
-        const moduleNodeIds = moduleNodes[level.name][moduleId];
-        const connectionDensity = selectedDrug ? 0.25 : 0.2;
-        const intraConnections = Math.min(moduleNodeIds.length * connectionDensity, 15);
-        
-        for (let i = 0; i < intraConnections; i++) {
-          const node1Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
-          const node2Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
-          
-          if (node1Id !== node2Id) {
-            links.push({
-              source: node1Id,
-              target: node2Id,
-              color: isDarkMode ? `rgba(120, 120, 150, 0.2)` : `rgba(100, 100, 100, 0.3)`,
-              width: 0.4
-            });
-          }
-        }
-      }
-    });
 
-    } // Close organic mode section
+    // Connect systems to each other in all modes
+    const systemNodes = levelNodes['systems'] || [];
+    if (systemNodes.length > 1) {
+      systemNodes.forEach((systemNodeId, index) => {
+        const connectionsPerSystem = Math.min(2, systemNodes.length - 1);
+        for (let i = 0; i < connectionsPerSystem; i++) {
+          const targetIndex = (index + i + 1) % systemNodes.length;
+          const targetSystemId = systemNodes[targetIndex];
+          links.push({
+            source: systemNodeId,
+            target: targetSystemId,
+            color: isDarkMode ? `rgba(255, 107, 53, 0.8)` : `rgba(229, 81, 0, 0.9)`,
+            width: 2.5
+          });
+        }
+      });
+    }
 
     // Safety check: Ensure no nodes are left unconnected
     const connectedNodes = new Set<string>();
@@ -880,83 +793,107 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     return baseCurvature * 0.3 + randomFactor * 0.2;
   }, []);
 
-  // Create 3D grid planes for grid mode
-  const createGridPlanes = useCallback(() => {
+  // Create a single grid plane for a specific level
+  const createSingleGridPlane = useCallback((levelName: string) => {
     if (viewMode !== 'grid') return null;
 
-    const gridGroup = new THREE.Group();
     const hierarchyLevels = [
-      { name: 'systems', count: 4, modules: 1, y: 400, spread: 300, size: 35, color: '#FF6B35', showLabels: true, labels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'] },
-      { name: 'organs', count: 8, modules: 2, y: 300, spread: 400, size: 18, color: '#4FB3D9', showLabels: true, labels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Lung', 'Skin', 'Muscle', 'Bone'] },
-      { name: 'tissues', count: 20, modules: 4, y: 200, spread: 500, size: 12, color: '#5DADE2', showLabels: false, labels: [] },
-      { name: 'cellular', count: 50, modules: 8, y: 100, spread: 600, size: 8, color: '#52C41A', showLabels: false, labels: [] },
-      { name: 'subcellular', count: 150, modules: 15, y: 50, spread: 700, size: 6, color: '#FAAD14', showLabels: false, labels: [] },
-      { name: 'molecular', count: particleCount, modules: 30, y: 0, spread: 800, size: 4, color: '#FF7A45', showLabels: false, labels: [] },
+      { name: 'systems', count: 4, modules: 1, y: 400, spread: 800, size: 35, color: '#FF6B35', showLabels: true, labels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'] },
+      { name: 'organs', count: 8, modules: 2, y: 280, spread: 400, size: 18, color: '#4FB3D9', showLabels: true, labels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Lung', 'Skin', 'Muscle', 'Bone'] },
+      { name: 'tissues', count: 20, modules: 4, y: 160, spread: 500, size: 12, color: '#5DADE2', showLabels: false, labels: [] },
+      { name: 'cellular', count: 50, modules: 8, y: 40, spread: 600, size: 12, color: '#52C41A', showLabels: false, labels: [] },
+      { name: 'subcellular', count: 150, modules: 15, y: 50, spread: 700, size: 8, color: '#FAAD14', showLabels: false, labels: [] },
+      { name: 'molecular', count: particleCount, modules: 30, y: 0, spread: 800, size: 6, color: '#FF7A45', showLabels: false, labels: [] },
       { name: 'atomic', count: Math.floor(particleCount * 0.3), modules: 20, y: -50, spread: 600, size: 2, color: '#87CEEB', showLabels: false, labels: [] }
     ];
 
-    hierarchyLevels.forEach((level: any, index: number) => {
-      if (!visibleLayers.has(level.name)) return;
+    const level = hierarchyLevels.find(l => l.name === levelName);
+    if (!level) return null;
 
-      // Create grid plane for each level
-      const gridSize = Math.ceil(Math.sqrt(level.count));
-      const maxGridWidth = 800;
-      const spacing = Math.min(maxGridWidth / gridSize, 60);
-      const planeSize = (gridSize - 1) * spacing + 100; // Add padding
+    const levelGroup = new THREE.Group();
+    levelGroup.name = `grid-${levelName}`;
 
-      // Create wireframe plane
-      const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize, gridSize, gridSize);
-      const planeMaterial = new THREE.MeshBasicMaterial({ 
-        color: isDarkMode ? 0x333366 : 0x666699,
-        wireframe: true,
+    // Create grid plane for this level
+    const gridSize = Math.ceil(Math.sqrt(level.count));
+    const maxGridWidth = 800;
+    const spacing = Math.min(maxGridWidth / gridSize, 60);
+    const planeSize = (gridSize - 1) * spacing + 100; // Add padding
+
+    // Create wireframe plane
+    const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize, gridSize, gridSize);
+    const planeMaterial = new THREE.MeshBasicMaterial({ 
+      color: isDarkMode ? 0x333366 : 0x666699,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.3
+    });
+    
+    const gridPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+    gridPlane.position.set(0, level.y, 0);
+    gridPlane.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+    
+    // Add level label
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (context) {
+      const fontSize = 32;
+      const padding = 16;
+      const text = level.name.toUpperCase();
+      
+      context.font = `bold ${fontSize}px Arial`;
+      const textWidth = context.measureText(text).width;
+      
+      canvas.width = textWidth + padding * 2;
+      canvas.height = fontSize + padding * 2;
+      
+      context.font = `bold ${fontSize}px Arial`;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+      context.fillText(text, canvas.width / 2, canvas.height / 2);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      const labelMaterial = new THREE.SpriteMaterial({ 
+        map: texture,
         transparent: true,
-        opacity: 0.3
+        alphaTest: 0.1
       });
       
-      const gridPlane = new THREE.Mesh(planeGeometry, planeMaterial);
-      gridPlane.position.set(0, level.y, 0);
-      gridPlane.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+      const label = new THREE.Sprite(labelMaterial);
+      const scale = 0.3;
+      label.scale.set(canvas.width * scale, canvas.height * scale, 1);
+      label.position.set(planeSize / 2 + 50, level.y + 20, 0);
       
-      // Add level label
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (context) {
-        const fontSize = 32;
-        const padding = 16;
-        const text = level.name.toUpperCase();
-        
-        context.font = `bold ${fontSize}px Arial`;
-        const textWidth = context.measureText(text).width;
-        
-        canvas.width = textWidth + padding * 2;
-        canvas.height = fontSize + padding * 2;
-        
-        context.font = `bold ${fontSize}px Arial`;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
-        context.fillText(text, canvas.width / 2, canvas.height / 2);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        const labelMaterial = new THREE.SpriteMaterial({ 
-          map: texture,
-          transparent: true,
-          alphaTest: 0.1
-        });
-        
-        const label = new THREE.Sprite(labelMaterial);
-        const scale = 0.3;
-        label.scale.set(canvas.width * scale, canvas.height * scale, 1);
-        label.position.set(planeSize / 2 + 50, level.y + 20, 0);
-        
-        gridGroup.add(label);
-      }
-      
-      gridGroup.add(gridPlane);
-    });
+      levelGroup.add(label);
+    }
+    
+    levelGroup.add(gridPlane);
+    return levelGroup;
+  }, [viewMode, isDarkMode, particleCount]);
 
-    return gridGroup;
-  }, [viewMode, visibleLayers, isDarkMode, particleCount]);
+  // Update individual grid planes when layers change
+  const updateGridPlanes = useCallback(() => {
+    if (!graphRef.current || viewMode !== 'grid') return;
+
+    const scene = graphRef.current.scene();
+    const hierarchyLevels = ['systems', 'organs', 'tissues', 'cellular', 'subcellular', 'molecular', 'atomic'];
+
+    hierarchyLevels.forEach(levelName => {
+      const existingGrid = scene.getObjectByName(`grid-${levelName}`);
+      const shouldShow = visibleLayers.has(levelName);
+
+      if (shouldShow && !existingGrid) {
+        // Add grid plane for this layer
+        const gridPlane = createSingleGridPlane(levelName);
+        if (gridPlane) {
+          scene.add(gridPlane);
+        }
+      } else if (!shouldShow && existingGrid) {
+        // Remove grid plane for this layer
+        scene.remove(existingGrid);
+      }
+    });
+  }, [visibleLayers, createSingleGridPlane, viewMode]);
 
   // Node three object function - creates persistent 3D labels for systems
   const nodeThreeObject = useCallback((node: any) => {
@@ -1148,27 +1085,26 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     };
   }, [onMouseMove, onMouseUp]);
 
-  // Update grid planes when view mode changes
+  // Update grid planes when view mode or layer visibility changes
   useEffect(() => {
     if (graphRef.current) {
       const scene = graphRef.current.scene();
       
-      // Remove existing grid planes
-      const existingGrid = scene.getObjectByName('gridPlanes');
-      if (existingGrid) {
-        scene.remove(existingGrid);
-      }
-      
-      // Add new grid planes if in grid mode
       if (viewMode === 'grid') {
-        const gridPlanes = createGridPlanes();
-        if (gridPlanes) {
-          gridPlanes.name = 'gridPlanes';
-          scene.add(gridPlanes);
-        }
+        // Update individual grid planes
+        updateGridPlanes();
+      } else {
+        // Remove all grid planes in organic mode
+        const hierarchyLevels = ['systems', 'organs', 'tissues', 'cellular', 'subcellular', 'molecular', 'atomic'];
+        hierarchyLevels.forEach(levelName => {
+          const existingGrid = scene.getObjectByName(`grid-${levelName}`);
+          if (existingGrid) {
+            scene.remove(existingGrid);
+          }
+        });
       }
     }
-  }, [viewMode, createGridPlanes, visibleLayers]);
+  }, [viewMode, updateGridPlanes, visibleLayers]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1187,6 +1123,14 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isPanelVisible]);
+
+  const handleResetPosition = useCallback(() => {
+    if (graphRef.current) {
+      // Position camera so systems level nodes (y=400) are at the top of the screen
+      // Systems nodes are at y=400, so position camera above them
+      graphRef.current.cameraPosition({ x: 0, y: 600, z: 1200 }, undefined, 1000);
+    }
+  }, []);
 
   return (
     <div className="hierarchical-network">
@@ -1208,6 +1152,13 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             ⬜
           </button>
         </div>
+        <button 
+          className="view-mode-btn reset-btn"
+          onClick={handleResetPosition}
+          title="Reset camera position"
+        >
+          ⟲
+        </button>
       </div>
 
       {/* Toggle button when panel is hidden */}
@@ -1314,9 +1265,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       
       <ForceGraph3D
         graphData={networkData}
-        width={window.innerWidth}
-        height={700}
-        backgroundColor={isDarkMode ? "#000000" : "#f5f5f5"}
+        backgroundColor="rgba(0,0,0,0)"
         showNavInfo={false}
         enableNodeDrag={true}
         enableNavigationControls={true}
@@ -1342,9 +1291,9 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         linkDirectionalParticles={0}
         
         // Enhanced force simulation settings with edge bundling
-        d3AlphaDecay={0.01} // Faster cooling for bundled edges
-        d3VelocityDecay={0.3} // More fluid movement for bundling
-        cooldownTicks={500} // Longer simulation for edge bundling
+        d3AlphaDecay={viewMode === 'grid' ? 1 : 0.01} // Disable physics in grid mode
+        d3VelocityDecay={viewMode === 'grid' ? 1 : 0.3} // Stop movement in grid mode
+        cooldownTicks={viewMode === 'grid' ? 0 : 500} // No simulation in grid mode
         
         // Camera controls with zoom restrictions
         
@@ -1353,30 +1302,11 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         onNodeHover={handleNodeHover}
         onLinkHover={() => {}}
         
-        // Add grid planes when engine stops
+        // Update grid planes when engine stops
         onEngineStop={() => {
           if (graphRef.current && viewMode === 'grid') {
-            const scene = graphRef.current.scene();
-            
-            // Remove existing grid planes
-            const existingGrid = scene.getObjectByName('gridPlanes');
-            if (existingGrid) {
-              scene.remove(existingGrid);
-            }
-            
-            // Add new grid planes
-            const gridPlanes = createGridPlanes();
-            if (gridPlanes) {
-              gridPlanes.name = 'gridPlanes';
-              scene.add(gridPlanes);
-            }
-          } else if (graphRef.current && viewMode === 'organic') {
-            // Remove grid planes in organic mode
-            const scene = graphRef.current.scene();
-            const existingGrid = scene.getObjectByName('gridPlanes');
-            if (existingGrid) {
-              scene.remove(existingGrid);
-            }
+            // Update grid planes for current visible layers
+            updateGridPlanes();
           }
         }}
         
