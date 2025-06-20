@@ -980,7 +980,12 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
                   <span 
                     className="legend-color" 
                     style={{ 
-                      background: `linear-gradient(45deg, ${Array.from(selectedDrugs).map(drugId => getDrugColor(drugId)).join(', ')})`
+                      backgroundColor: blendDrugColors(
+                        Array.from(selectedDrugs).reduce((acc, drugId) => {
+                          acc[drugId] = 1; // Equal weight for legend display
+                          return acc;
+                        }, {} as { [drugId: string]: number })
+                      )
                     }}
                   ></span>
                   <span className="legend-text">Multiple Drugs (blended)</span>
