@@ -12,6 +12,44 @@
   z-index: 1;
 }
 
+/* Network title container styling */
+.network-title-container {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 1002;
+  max-width: 600px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px);
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.network-title-container .section-title {
+  color: #364FA1;
+  text-transform: none;
+  font-size: 20px;
+  margin: 0 0 4px 0;
+  font-weight: 600;
+}
+
+.network-title-container .section-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  text-align: left;
+  margin: 0;
+}
+
+body.dark-mode .network-title-container {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .network-title-container .section-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .hierarchical-controls {
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
@@ -551,80 +589,6 @@ body.dark-mode .performance-info {
   }
 }
 
-/* Minimal View Mode Controls */
-.view-mode-controls {
-  position: absolute;
-  top: 20px;
-  right: 80px;
-  z-index: 1001;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.view-mode-buttons {
-  display: flex;
-  gap: 2px;
-  background: transparent;
-  border-radius: 12px;
-  padding: 4px;
-}
-
-.view-mode-btn {
-  width: 24px;
-  height: 24px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.6);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: normal;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-body.light-mode .view-mode-btn {
-  color: rgba(0, 0, 0, 0.6);
-}
-
-.view-mode-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 1);
-}
-
-body.light-mode .view-mode-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: rgba(0, 0, 0, 1);
-}
-
-.view-mode-btn.active {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-body.light-mode .view-mode-btn.active {
-  background: rgba(0, 0, 0, 0.2);
-  color: black;
-}
-
-.view-mode-btn.active:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-body.light-mode .view-mode-btn.active:hover {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.reset-btn {
-  font-size: 16px; /* Slightly larger for the icon */
-  line-height: 1;
-}
-
 /* Network Statistics Panel */
 .network-stats-panel {
   position: absolute;
@@ -847,46 +811,50 @@ body.light-mode .panel-toggle-btn:hover {
   background: rgba(240, 240, 240, 0.95);
 }
 
-/* Pan control button */
-.pan-control-btn {
+/* New styles for the 3D view controls container */
+.view-controls-container {
   position: absolute;
   top: 20px;
   right: 20px;
-  z-index: 1000;
-  background: rgba(15, 15, 25, 0.9);
-  border: 1px solid rgba(120, 120, 140, 0.3);
-  border-radius: 50%;
-  width: 48px;
-  height: 48px;
+  z-index: 1001;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 12px;
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+body.dark-mode .view-controls-container {
+  background: rgba(30, 30, 45, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.view-control-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  font-size: 20px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
 }
 
-body.light-mode .pan-control-btn {
-  background: rgba(240, 240, 240, 0.9);
-  border: 1px solid rgba(200, 200, 200, 0.5);
+.view-control-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-primary);
 }
 
-.pan-control-btn:hover {
-  background: rgba(30, 30, 50, 0.95);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-body.light-mode .pan-control-btn:hover {
-  background: rgba(230, 230, 230, 0.95);
-}
-
-.pan-control-btn.active {
-  background: rgba(54, 79, 161, 0.9);
-  border: 1px solid rgba(120, 140, 200, 0.5);
-}
-
-body.light-mode .pan-control-btn.active {
-  background: rgba(54, 79, 161, 0.8);
-  color: white;
+.view-control-btn.active {
+  background: var(--accent-primary-faded);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
 } 

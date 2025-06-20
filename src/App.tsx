@@ -76,49 +76,42 @@ function App() {
   // Dashboard state
   const [currentView, setCurrentView] = useState<DashboardView>('dashboard');
   
-  // Existing states (preserved exactly)
+  // Core application states
   const [baselineData, setBaselineData] = useState<PathwayData>({ nodes: [], links: [], pathways: [] });
   const [dimensions, setDimensions] = useState({
     width: Math.max(2000, window.innerWidth * 1.8),
     height: Math.max(1800, window.innerHeight * 2)
   });
 
-  // Enhanced control states
+  // Control states
   const [treatmentMode, setTreatmentMode] = useState<'control' | 'drug'>('control');
-  const [selectedDrugs, setSelectedDrugs] = useState<Set<string>>(new Set()); // Multi-drug selection
+  const [selectedDrugs, setSelectedDrugs] = useState<Set<string>>(new Set());
   const [visibleNodeTypes, setVisibleNodeTypes] = useState<Set<OmicsType>>(
     new Set([OmicsType.mRNA, OmicsType.PROTEIN, OmicsType.METABOLITE, OmicsType.LIPID])
   );
 
-  // Theme state
+  // Theme and layer states
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
-
-  // Layer visibility state for 3D network
   const [visibleLayers, setVisibleLayers] = useState<Set<string>>(new Set([
     'systems', 'organs', 'tissues', 'cellular', 'molecular'
   ]));
 
-  // Natural language query states
+  // Query states
   const [queryText, setQueryText] = useState<string>('');
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [showQueryHelp, setShowQueryHelp] = useState<boolean>(false);
   const [nlpParser, setNlpParser] = useState<NaturalLanguageQueryParser | null>(null);
-  
-  // Info popup state
   const [showInfoPopup, setShowInfoPopup] = useState<boolean>(false);
 
   useEffect(() => {
-    // Generate mock data on component mount
     const mockData = generateMockData();
     setBaselineData(mockData);
     
-    // Initialize NLP parser
     const parser = new NaturalLanguageQueryParser(mockData);
     setNlpParser(parser);
   }, []);
 
   useEffect(() => {
-    // Handle window resize
     const handleResize = () => {
       setDimensions({
         width: Math.max(2000, window.innerWidth * 1.8),
@@ -130,10 +123,8 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Browser back button functionality
   useEffect(() => {
     const handlePopState = () => {
-      // Get the view from URL or default to dashboard
       const urlParams = new URLSearchParams(window.location.search);
       const viewFromUrl = urlParams.get('view') as DashboardView;
       const validView = VISUALIZATION_TILES.find(tile => tile.id === viewFromUrl)?.id || 'dashboard';
@@ -144,7 +135,6 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Update URL when view changes
   useEffect(() => {
     const url = new URL(window.location.href);
     if (currentView === 'dashboard') {
@@ -153,11 +143,9 @@ function App() {
       url.searchParams.set('view', currentView);
     }
     
-    // Update URL without triggering popstate
     window.history.replaceState({}, '', url.toString());
   }, [currentView]);
 
-  // Apply theme class to document body
   useEffect(() => {
     document.body.className = isDarkMode ? 'dark-mode' : 'light-mode';
   }, [isDarkMode]);
@@ -165,10 +153,9 @@ function App() {
   // Compute individual drug effects for each selected drug
   const drugPerturbedData = useMemo(() => {
     if (selectedDrugs.size === 0 || treatmentMode === 'control') {
-      return null; // No drug data when in control mode or no drugs selected
+      return null;
     }
 
-    // Create individual datasets for each selected drug
     const individualDrugData: { [drugId: string]: PathwayData } = {};
     
     selectedDrugs.forEach(drugId => {
@@ -185,7 +172,6 @@ function App() {
 
   // Get the current data to display (always baseline as base, with drug overlays)
   const currentData = useMemo(() => {
-    // Always return baseline data as the base network
     return baselineData;
   }, [baselineData]);
 
@@ -193,37 +179,38 @@ function App() {
   const filteredData = useMemo(() => {
     let dataToFilter = currentData;
     
-    // Apply natural language query filtering first
     if (queryText.trim() && nlpParser) {
       const result = nlpParser.parseQuery(queryText, dataToFilter.nodes);
       setQueryResult(result);
       
-      // Use the filtered nodes from the query
-      dataToFilter = {
-        ...dataToFilter,
-        nodes: result.nodes
-      };
-    } else {
-      setQueryResult(null);
+      if (result.nodes.length > 0) {
+        dataToFilter = {
+          ...dataToFilter,
+          nodes: result.nodes,
+          links: dataToFilter.links.filter(link => {
+            const sourceId = typeof link.source === 'string' ? link.source : (link.source as BiologicalNode).id;
+            const targetId = typeof link.target === 'string' ? link.target : (link.target as BiologicalNode).id;
+            return result.nodes.some(node => node.id === sourceId || node.id === targetId);
+          })
+        };
+      }
     }
     
-    // Apply node type filtering
-    const filteredNodes = dataToFilter.nodes.filter((node: BiologicalNode) => 
+    const filteredNodes = dataToFilter.nodes.filter(node => 
       visibleNodeTypes.has(node.type)
     );
     
-    // Filter links to only include those between visible nodes
-    const nodeIds = new Set(filteredNodes.map((n: BiologicalNode) => n.id));
-    const filteredLinks = dataToFilter.links.filter((link: any) => {
-      const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
-      const targetId = typeof link.target === 'string' ? link.target : link.target.id;
-      return nodeIds.has(sourceId) && nodeIds.has(targetId);
+    const filteredLinks = dataToFilter.links.filter(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : (link.source as BiologicalNode).id;
+      const targetId = typeof link.target === 'string' ? link.target : (link.target as BiologicalNode).id;
+      return filteredNodes.some(node => node.id === sourceId) && 
+             filteredNodes.some(node => node.id === targetId);
     });
     
     return {
+      ...dataToFilter,
       nodes: filteredNodes,
-      links: filteredLinks,
-      pathways: dataToFilter.pathways
+      links: filteredLinks
     };
   }, [currentData, queryText, nlpParser, visibleNodeTypes]);
 
@@ -351,115 +338,112 @@ function App() {
     </div>
   );
 
-  // Render controls (for network, hierarchical network, and sankey views)
+  // Render controls (for network, hierarchical network, sankey, and radar views)
   const renderControls = () => {
-    if (currentView !== 'network' && currentView !== 'network3d' && currentView !== 'sankey') return null;
+    if (currentView !== 'network' && currentView !== 'network3d' && currentView !== 'sankey' && currentView !== 'radar') return null;
     
     // Different controls for 3D network vs regular network
     if (currentView === 'network3d') {
       return (
-        <div className="controls-container">
+        <div className="controls-container network-explorer-controls">
           <div className="controls-content">
-            {/* Add Blue Title */}
-            <div className="section-title" style={{ 
-              color: '#364FA1', 
-              textTransform: 'none',
-              fontSize: '20px'
-            }}>
+                        {/* Blue Title using the same class as Network Explorer */}
+            <div className="section-title" style={{ textTransform: 'none' }}>
               3D Network Explorer
             </div>
 
-            {/* Add subtitle */}
+            {/* High-level Summary with no bottom margin */}
             <div style={{ 
               fontSize: '14px', 
               color: 'var(--text-secondary)', 
               lineHeight: '1.5',
               textAlign: 'left',
-              marginBottom: '16px',
-              maxWidth: '600px'
+              marginBottom: '0'
             }}>
               Hierarchical Network Visualization
             </div>
-            
-            {/* Network Topology Selection */}
-            <div className="control-group">
-              <label className="control-label">Treatment:</label>
-              <div className="toggle-group">
-                <button 
-                  className={`toggle-button ${treatmentMode === 'control' ? 'active' : ''}`}
-                  onClick={() => setTreatmentMode('control')}
-                >
-                  Control
-                </button>
-                <button 
-                  className={`toggle-button ${treatmentMode === 'drug' ? 'active' : ''}`}
-                  onClick={() => setTreatmentMode('drug')}
-                >
-                  Drug
-                </button>
-              </div>
-            </div>
-
-            {/* Drug Selection for Different Topologies */}
-            {treatmentMode === 'drug' && (
+              
+              {/* Horizontal controls row to center all buttons */}
+            <div className="controls-row">
+              {/* Network Topology Selection */}
               <div className="control-group">
-                <label className="control-label">Drug:</label>
-                <div className="drug-toggles">
-                  {DRUG_TREATMENTS.map(drug => (
+                <label className="control-label">Treatment:</label>
+                <div className="toggle-group">
+                  <button 
+                    className={`toggle-button ${treatmentMode === 'control' ? 'active' : ''}`}
+                    onClick={() => setTreatmentMode('control')}
+                  >
+                    Control
+                  </button>
+                  <button 
+                    className={`toggle-button ${treatmentMode === 'drug' ? 'active' : ''}`}
+                    onClick={() => setTreatmentMode('drug')}
+                  >
+                    Drug
+                  </button>
+                </div>
+              </div>
+
+              {/* Drug Selection for Different Topologies */}
+              {treatmentMode === 'drug' && (
+                <div className="control-group">
+                  <label className="control-label">Drug:</label>
+                  <div className="drug-toggles">
+                    {DRUG_TREATMENTS.map(drug => (
+                      <button
+                        key={drug.id}
+                        className={`drug-toggle ${selectedDrugs.has(drug.id) ? 'active' : ''}`}
+                        onClick={() => {
+                          // For 3D network, only allow one drug at a time for topology generation
+                          const newSelectedDrugs = new Set<string>();
+                          if (!selectedDrugs.has(drug.id)) {
+                            newSelectedDrugs.add(drug.id);
+                          }
+                          setSelectedDrugs(newSelectedDrugs);
+                        }}
+                        title={`Generate network topology optimized for ${drug.name} - ${drug.mechanism}`}
+                      >
+                        {drug.name}
+                        {selectedDrugs.has(drug.id) && <span className="drug-check">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Layer Toggle Controls */}
+              <div className="control-group">
+                <label className="control-label">Network Layers:</label>
+                <div className="layer-controls">
+                  {[
+                    { key: 'systems', label: 'Systems', color: '#E86659' },
+                    { key: 'organs', label: 'Organs', color: '#CCCCFF' },
+                    { key: 'tissues', label: 'Tissues', color: '#FF7F50' },
+                    { key: 'cellular', label: 'Cellular', color: '#9FE2BF' },
+                    { key: 'molecular', label: 'Molecular', color: '#DFFF00' }
+                  ].map(layer => (
                     <button
-                      key={drug.id}
-                      className={`drug-toggle ${selectedDrugs.has(drug.id) ? 'active' : ''}`}
-                      onClick={() => {
-                        // For 3D network, only allow one drug at a time for topology generation
-                        const newSelectedDrugs = new Set<string>();
-                        if (!selectedDrugs.has(drug.id)) {
-                          newSelectedDrugs.add(drug.id);
-                        }
-                        setSelectedDrugs(newSelectedDrugs);
+                      key={layer.key}
+                      onClick={() => toggleLayer(layer.key)}
+                      className={`layer-toggle ${visibleLayers.has(layer.key) ? 'active' : ''}`}
+                      style={{
+                        backgroundColor: visibleLayers.has(layer.key) ? layer.color : 'transparent',
+                        borderColor: layer.color,
+                        color: visibleLayers.has(layer.key) ? '#000' : layer.color,
+                        fontSize: '12px',
+                        padding: '6px 12px',
+                        margin: '4px',
+                        border: `2px solid ${layer.color}`,
+                        borderRadius: '16px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        fontWeight: visibleLayers.has(layer.key) ? 'bold' : 'normal'
                       }}
-                      title={`Generate network topology optimized for ${drug.name} - ${drug.mechanism}`}
                     >
-                      {drug.name}
-                      {selectedDrugs.has(drug.id) && <span className="drug-check">✓</span>}
+                      {layer.label}
                     </button>
                   ))}
                 </div>
-
-              </div>
-            )}
-
-            {/* Layer Toggle Controls */}
-            <div className="control-group">
-              <label className="control-label">Network Layers:</label>
-              <div className="layer-controls">
-                {[
-                  { key: 'systems', label: 'Systems', color: '#E86659' },
-                  { key: 'organs', label: 'Organs', color: '#CCCCFF' },
-                  { key: 'tissues', label: 'Tissues', color: '#FF7F50' },
-                  { key: 'cellular', label: 'Cellular', color: '#9FE2BF' },
-                  { key: 'molecular', label: 'Molecular', color: '#DFFF00' }
-                ].map(layer => (
-                  <button
-                    key={layer.key}
-                    onClick={() => toggleLayer(layer.key)}
-                    className={`layer-toggle ${visibleLayers.has(layer.key) ? 'active' : ''}`}
-                    style={{
-                      backgroundColor: visibleLayers.has(layer.key) ? layer.color : 'transparent',
-                      borderColor: layer.color,
-                      color: visibleLayers.has(layer.key) ? '#000' : layer.color,
-                      fontSize: '12px',
-                      padding: '6px 12px',
-                      margin: '4px',
-                      border: `2px solid ${layer.color}`,
-                      borderRadius: '16px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      fontWeight: visibleLayers.has(layer.key) ? 'bold' : 'normal'
-                    }}
-                  >
-                    {layer.label}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -472,46 +456,95 @@ function App() {
     // Controls for sankey view
     if (currentView === 'sankey') {
       return (
-        <div className="controls-container">
+        <div className="controls-container network-explorer-controls">
           <div className="controls-content">
-            {/* Treatment Mode Toggle */}
-            <div className="control-group">
-              <label className="control-label">Treatment:</label>
-              <div className="toggle-group">
-                <button 
-                  className={`toggle-button ${treatmentMode === 'control' ? 'active' : ''}`}
-                  onClick={() => setTreatmentMode('control')}
-                >
-                  Control
-                </button>
-                <button 
-                  className={`toggle-button ${treatmentMode === 'drug' ? 'active' : ''}`}
-                  onClick={() => setTreatmentMode('drug')}
-                >
-                  Drug
-                </button>
-              </div>
+            {/* Blue Title */}
+            <div className="section-title" style={{ 
+              color: '#364FA1', 
+              textTransform: 'none',
+              fontSize: '20px'
+            }}>
+              Multi-Scale Flow
             </div>
 
-            {/* Multi-Drug Selection (only visible when drug mode is selected) */}
-            {treatmentMode === 'drug' && (
+            {/* High-level Summary */}
+            <div style={{ 
+              fontSize: '14px', 
+              color: 'var(--text-secondary)', 
+              lineHeight: '1.5',
+              textAlign: 'left',
+              marginBottom: '6px'
+            }}>
+              Sankey diagrams showing molecular → cellular → system cascades. Click nodes to expand/collapse sections.
+            </div>
+
+            {/* Horizontal controls row */}
+            <div className="controls-row">
+              {/* Treatment Mode Toggle */}
               <div className="control-group">
-                <label className="control-label">Drugs:</label>
-                <div className="drug-toggles">
-                  {DRUG_TREATMENTS.map(drug => (
-                    <button
-                      key={drug.id}
-                      className={`drug-toggle ${selectedDrugs.has(drug.id) ? 'active' : ''}`}
-                      onClick={() => toggleDrug(drug.id)}
-                      title={`${drug.name} - ${drug.mechanism}`}
-                    >
-                      {drug.name}
-                      {selectedDrugs.has(drug.id) && <span className="drug-check">✓</span>}
-                    </button>
-                  ))}
+                <label className="control-label">Treatment:</label>
+                <div className="toggle-group">
+                  <button 
+                    className={`toggle-button ${treatmentMode === 'control' ? 'active' : ''}`}
+                    onClick={() => setTreatmentMode('control')}
+                  >
+                    Control
+                  </button>
+                  <button 
+                    className={`toggle-button ${treatmentMode === 'drug' ? 'active' : ''}`}
+                    onClick={() => setTreatmentMode('drug')}
+                  >
+                    Drug
+                  </button>
                 </div>
               </div>
-            )}
+
+              {/* Multi-Drug Selection (only visible when drug mode is selected) */}
+              {treatmentMode === 'drug' && (
+                <div className="control-group">
+                  <label className="control-label">Drugs:</label>
+                  <div className="drug-toggles">
+                    {DRUG_TREATMENTS.map(drug => (
+                      <button
+                        key={drug.id}
+                        className={`drug-toggle ${selectedDrugs.has(drug.id) ? 'active' : ''}`}
+                        onClick={() => toggleDrug(drug.id)}
+                        title={`${drug.name} - ${drug.mechanism}`}
+                      >
+                        {drug.name}
+                        {selectedDrugs.has(drug.id) && <span className="drug-check">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Controls for radar view
+    if (currentView === 'radar') {
+      return (
+        <div className="controls-container network-explorer-controls">
+          <div className="controls-content">
+            {/* Blue Title */}
+            <div className="section-title" style={{ textTransform: 'none' }}>
+              Drug Profile Radar
+            </div>
+
+            {/* High-level Summary */}
+            <div style={{ 
+              fontSize: '14px', 
+              color: 'var(--text-secondary)', 
+              lineHeight: '1.5',
+              textAlign: 'left',
+              marginBottom: '6px',
+              maxWidth: '600px'
+            }}>
+              Compare drug effects across multiple biological pathways. Each drug shows a unique profile pattern.
+            </div>
           </div>
         </div>
       );

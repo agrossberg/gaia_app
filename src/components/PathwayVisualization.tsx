@@ -33,12 +33,11 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
 
   // Draggable popup state
   const [isDragging, setIsDragging] = useState(false);
-  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const startPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
+  const startPos = useRef({ x: 0, y: 0 });
   const popupRef = useRef<HTMLDivElement | null>(null);
 
   // New color palette
@@ -65,13 +64,21 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     'Temperature Regulation': colorPalette[8] // Light yellow
   }), [colorPalette]);
 
-  // Drug-specific colors using user's specified colors
+  // Drug colors for visualization
   const drugColors = useMemo(() => ({
-    'ketamine': '#FFBF00',    // User specified
-    'etomidate': '#40E0D0',   // User specified
-    'propofol': '#DE3163',    // User specified
-    'novel1': '#6495ED',      // User specified
-    'novel2': '#77B254'       // User specified - updated color
+    'ketamine': '#FFBF00',
+    'etomidate': '#40E0D0',
+    'propofol': '#DE3163',
+    'novel1': '#6495ED',
+    'novel2': '#77B254'
+  }), []);
+
+  // Omics type colors
+  const omicsColors = useMemo(() => ({
+    'proteins': '#CCCCFF',
+    'metabolites': '#FF7F50',
+    'mRNA transcripts': '#9FE2BF',
+    'lipids': '#DFFF00'
   }), []);
 
   // Always use baseline data as the foundation - drug effects are overlays only
@@ -99,15 +106,8 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
   // Get node color based on omics type - using user's specified colors
   const getNodeColor = useCallback((node: BiologicalNode) => {
     // Map omics types to user's specified colors
-    const omicsColors = {
-      'proteins': '#CCCCFF',        // User specified
-      'metabolites': '#FF7F50',     // User specified
-      'mRNA transcripts': '#9FE2BF', // User specified
-      'lipids': '#DFFF00'           // User specified
-    };
-    
     return omicsColors[node.type as keyof typeof omicsColors] || colorPalette[0];
-  }, [colorPalette]);
+  }, [colorPalette, omicsColors]);
 
   // Get node opacity - always standard opacity for clean look
   const getNodeOpacity = useCallback((node: BiologicalNode) => {
@@ -129,26 +129,11 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     };
   }, []);
 
-  // Drug effect indicators are now handled by the getNodeDrugEffects system
-  const getDrugEffectIndicator = useCallback((node: BiologicalNode) => {
-    // This function is no longer used - drug effects handled by overlay system
-    return null;
-  }, []);
-
   // Get drug effects for a specific node from all selected drugs
   const getNodeDrugEffects = useCallback((node: BiologicalNode) => {
-    console.log(`=== getNodeDrugEffects DEBUG for ${node.name} ===`);
-    console.log('individualDrugData exists:', !!individualDrugData);
-    console.log('selectedDrugs exists:', !!selectedDrugs);
-    console.log('selectedDrugs size:', selectedDrugs?.size || 0);
-    console.log('selectedDrugs contents:', selectedDrugs ? Array.from(selectedDrugs) : []);
-    
     if (!individualDrugData || !selectedDrugs || selectedDrugs.size === 0) {
-      console.log('Returning empty array - missing data or no selected drugs');
       return [];
     }
-
-    console.log('individualDrugData keys:', Object.keys(individualDrugData));
 
     const effects: Array<{
       drugId: string;
@@ -159,25 +144,10 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     }> = [];
 
     selectedDrugs.forEach(drugId => {
-      console.log(`Processing drug ${drugId}...`);
       const drugData = individualDrugData[drugId];
-      console.log(`Drug data exists for ${drugId}:`, !!drugData);
       
       if (drugData) {
-        console.log(`Drug ${drugId} has ${drugData.nodes.length} nodes`);
         const drugNode = drugData.nodes.find(n => n.id === node.id);
-        console.log(`Found matching node for ${node.name} in ${drugId}:`, !!drugNode);
-        
-        if (drugNode) {
-          console.log(`Drug node details:`, {
-            id: drugNode.id,
-            name: drugNode.name,
-            isPerturbationTarget: drugNode.isPerturbationTarget,
-            foldChange: drugNode.foldChange,
-            expression: drugNode.expression,
-            baselineExpression: drugNode.baselineExpression
-          });
-        }
         
         if (drugNode && drugNode.foldChange && drugNode.foldChange !== 1.0) {
           const drugInfo = DRUG_TREATMENTS.find(d => d.id === drugId);
@@ -189,13 +159,10 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
             isTarget: drugNode.isPerturbationTarget || false
           };
           effects.push(effect);
-          console.log(`Added effect for ${node.name}:`, effect);
         }
       }
     });
 
-    console.log(`Final effects for ${node.name}: ${effects.length} effects`);
-    console.log('=== END getNodeDrugEffects DEBUG ===');
     return effects;
   }, [individualDrugData, selectedDrugs, drugColors]);
 
@@ -342,8 +309,8 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       'Temperature Regulation': { x: 0.9, y: 0.05 }    // End a bit more inward
     };
 
-    // Pre-position nodes with much more organic, natural distribution
-    simulationNodes.forEach(node => {
+    // Position nodes in static organic layout
+    simulationNodes.forEach((node: BiologicalNode, i: number) => {
       const timepoint = (node as any).timepoint || '10 min';
       // Use first category for positioning if multiple categories exist
       const category = Array.isArray(node.broadCategory) ? node.broadCategory[0] : (node.broadCategory || 'Energy Metabolism');
@@ -376,12 +343,10 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     });
 
     // No force simulation - nodes are static at their assigned positions
-    console.log(`Positioned ${simulationNodes.length} nodes in static organic layout`);
 
     // Add click handler to SVG background to deselect nodes
     svg.on('click', () => {
       setSelectedNode(null);
-      setHighlightedCategory(null);
     });
 
     // Create container for all elements
@@ -454,14 +419,9 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       });
 
     // Create drug effect overlays for links (multiple colored overlays)
-    console.log('=== DRUG EFFECT LINKS CREATION ===');
     if (visualizationMode === VisualizationMode.PERTURBED && selectedDrugs && selectedDrugs.size > 0) {
-      console.log('Creating drug effect links...');
-      let totalLinksCreated = 0;
-      
       simulationLinks.forEach((link: BiologicalLink) => {
         const drugEffects = getLinkDrugEffects(link);
-        console.log(`Link has ${drugEffects.length} drug effects`);
         
         drugEffects.forEach((effect, index) => {
           const sourceNode = simulationNodes.find(n => n.id === (typeof link.source === 'string' ? link.source : link.source.id));
@@ -482,26 +442,17 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
           const offset = (index - drugEffects.length / 2) * 1.5;
           const drOffset = dr + offset;
           
-          console.log(`Creating drug link - color: ${effect.color}, strengthChange: ${effect.strengthChange}`);
-          
           container.append('path')
             .attr('class', `drug-link-effect drug-${effect.drugId}`)
             .attr('stroke', effect.color)
-            .attr('stroke-width', effect.strengthChange > 1.2 ? 2.5 : effect.strengthChange < 0.8 ? 2 : 1.5) // Thinner lines
+            .attr('stroke-width', effect.strengthChange > 1.2 ? 2.5 : effect.strengthChange < 0.8 ? 2 : 1.5)
             .attr('fill', 'none')
-            .attr('opacity', 0.7) // More transparent to show overlaps
+            .attr('opacity', 0.7)
             .attr('d', `M${sx},${sy}A${drOffset},${drOffset} 0 0,1 ${tx},${ty}`)
-            .style('filter', `drop-shadow(0 0 3px ${effect.color})`); // Softer glow
-          
-          totalLinksCreated++;
+            .style('filter', `drop-shadow(0 0 3px ${effect.color})`);
         });
       });
-      
-      console.log(`Total drug effect links created: ${totalLinksCreated}`);
-    } else {
-      console.log('Not creating drug links - conditions not met');
     }
-    console.log('=== END DRUG EFFECT LINKS CREATION ===');
 
     // Create base nodes (always same colors for control network)
     const nodeSelection = container.append('g')
@@ -519,45 +470,24 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       .style('cursor', 'pointer')
       .on('click', (event: any, d: BiologicalNode) => {
         event.stopPropagation();
-        console.log('=== NODE CLICK DEBUG ===');
-        console.log('Node clicked:', d.name, 'ID:', d.id, 'Pathway:', d.pathway);
-        console.log('Current selectedNode state:', selectedNode);
-        console.log('Node data:', d);
         
         if (selectedNode === d.id) {
-          console.log('Deselecting node - same node clicked');
           setSelectedNode(null);
-          setHighlightedCategory(null);
         } else {
-          console.log('Selecting new node:', d.id);
           setSelectedNode(d.id);
-          setHighlightedCategory(null);
         }
-        console.log('Updated selectedNode state to:', selectedNode === d.id ? null : d.id);
-        console.log('=== END NODE CLICK DEBUG ===');
       });
 
     // Create drug effect rings around nodes (multiple colored rings for multiple drugs)
-    console.log('=== DRUG EFFECT RINGS CREATION ===');
-    console.log('visualizationMode:', visualizationMode);
-    console.log('VisualizationMode.PERTURBED:', VisualizationMode.PERTURBED);
-    console.log('selectedDrugs size:', selectedDrugs?.size || 0);
-    
     if (visualizationMode === VisualizationMode.PERTURBED && selectedDrugs && selectedDrugs.size > 0) {
-      console.log('Creating drug effect rings for nodes...');
-      let totalRingsCreated = 0;
-      
       // Create drug effect rings for affected nodes
       simulationNodes.forEach((node: BiologicalNode, nodeIndex) => {
         // Drug effects logic
         const drugEffects = getNodeDrugEffects(node);
-        console.log(`Node ${node.name}: ${drugEffects.length} drug effects`);
         
         drugEffects.forEach((effect, index) => {
           const baseRadius = getNodeRadius(node);
           const ringRadius = baseRadius + 3 + (index * 2); // Smaller, more compact rings
-          
-          console.log(`Creating ring for ${node.name} - drug: ${effect.drugId}, color: ${effect.color}, radius: ${ringRadius}`);
           
           // Create colored ring for this drug effect - smaller but still visible
           container.append('circle')
@@ -577,8 +507,6 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
           const symbolOffset = ringRadius + 8; // Closer to the node
           const angle = (index * 72) * Math.PI / 180; // Spread symbols in 72-degree increments (5 positions)
           
-          console.log(`Creating symbol for ${node.name} - symbol: ${symbol}, color: ${effect.color}`);
-          
           container.append('text')
             .attr('class', `drug-symbol drug-${effect.drugId}`)
             .attr('x', (node.x || 0) + symbolOffset * Math.cos(angle))
@@ -591,35 +519,21 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
             .style('text-shadow', '1px 1px 3px rgba(0,0,0,1)') // Moderate shadow
             .style('pointer-events', 'none')
             .text(symbol);
-          
-          totalRingsCreated++;
         });
       });
-      
-      console.log(`Total drug effect rings created: ${totalRingsCreated}`);
-    } else {
-      console.log('Not creating drug rings - conditions not met');
     }
-    console.log('=== END DRUG EFFECT RINGS CREATION ===');
 
     // No old drug indicators needed - using new ring system
 
-    console.log('Static network layout complete - nodes are fixed in position');
-
     // No simulation cleanup needed since we're not using force simulation
     return () => {
-      console.log('Static layout cleanup');
+      // Cleanup
     };
-  }, [baselineData, individualDrugData, selectedPathway, selectedOmicsType, selectedDrug, visualizationMode, width, height, isDarkMode, filterData, getNodeRadius, getNodeColor, getNodeOpacity, getNodeStroke, getNodeVisualEffects, getDrugEffectIndicator]);
+  }, [baselineData, individualDrugData, selectedPathway, selectedOmicsType, selectedDrug, visualizationMode, width, height, isDarkMode, filterData, getNodeRadius, getNodeColor, getNodeOpacity, getNodeStroke, getNodeVisualEffects, getNodeDrugEffects]);
 
   // Separate useEffect to handle color updates when selectedNode changes
   useEffect(() => {
-    console.log('=== COLOR UPDATE EFFECT TRIGGERED ===');
-    console.log('selectedNode changed to:', selectedNode);
-    console.log('svgRef.current exists:', !!svgRef.current);
-    
     if (!svgRef.current) {
-      console.log('No SVG ref, exiting color update');
       return;
     }
     
@@ -627,15 +541,9 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     const nodeSelection = svg.selectAll('.pathway-node');
     const linkSelection = svg.selectAll('.pathway-link');
     
-    console.log('Node selection size:', nodeSelection.size());
-    console.log('Link selection size:', linkSelection.size());
-    
     if (nodeSelection.empty() || linkSelection.empty()) {
-      console.log('Node or link selection is empty, exiting color update');
       return;
     }
-    
-    console.log('Updating colors for selectedNode:', selectedNode);
     
     // Update text colors for theme changes
     const textColor = isDarkMode ? '#ffffff' : '#002B32';
@@ -648,11 +556,8 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
     if (selectedNode) {
       // Get the filtered data (what's currently displayed) to find causal chain nodes
       const { nodes: filteredNodes, links: filteredLinks } = filterData();
-      console.log('Filtered data nodes count:', filteredNodes.length);
       const clickedNode = filteredNodes.find(n => n.id === selectedNode);
-      console.log('Found clicked node in filtered data:', clickedNode);
       if (!clickedNode) {
-        console.log('Clicked node not found in filtered data, exiting');
         return;
       }
       
@@ -662,16 +567,11 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       );
       const causalChainNodes = new Set(samePathwayNodes.map(n => n.id));
       
-      console.log('Same pathway nodes count:', samePathwayNodes.length);
-      console.log('Causal chain nodes:', Array.from(causalChainNodes));
-      
       // Update node colors and opacity
       nodeSelection.style('fill', (d: any) => {
         if (selectedNode === d.id) {
-          console.log('Coloring selected node bright white:', d.name);
           return '#FFFBE6'; // Selected node gets bright white glow
         } else if (causalChainNodes.has(d.id)) {
-          console.log('Coloring pathway node by omics type:', d.name, d.type);
           // Connected nodes get colors based on drug effects or omics type
           return getNodeColor(d);
         } else {
@@ -689,7 +589,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       });
       
       // Update link colors and visibility for curved paths
-      linkSelection.attr('stroke', function(d: any) {
+      linkSelection.attr('stroke', (d: any) => {
         const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
         const targetId = typeof d.target === 'string' ? d.target : d.target.id;
         
@@ -706,7 +606,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
         }
         return 'var(--edge-color)'; // Theme-aware dim color for other connections
       })
-      .attr('stroke-width', function(d: any) {
+      .attr('stroke-width', (d: any) => {
         const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
         const targetId = typeof d.target === 'string' ? d.target : d.target.id;
         
@@ -720,7 +620,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
         }
         return Math.max(1, d.strength * 1.5); // Thinner for other connections
       })
-      .attr('opacity', function(d: any) {
+      .attr('opacity', (d: any) => {
         const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
         const targetId = typeof d.target === 'string' ? d.target : d.target.id;
         
@@ -746,23 +646,19 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       });
       
       // Update category labels - dim those not involved in the causal chain
-      categoryLabelsSelection.style('opacity', function(d: any) {
+      categoryLabelsSelection.style('opacity', (d: any) => {
         if (involvedCategories.has(d)) {
           return 1; // Full opacity for involved categories
         } else {
           return 0.3; // Dimmed for uninvolved categories
         }
       });
-      
-      console.log('Applied highlighting styles to nodes, links, and labels');
     } else {
-      console.log('Resetting to default colors');
       // Reset to default colors when no node is selected
       nodeSelection.style('fill', (d: any) => getNodeColor(d))
         .style('opacity', (d: any) => getNodeOpacity(d));
       
       linkSelection.attr('stroke', (d: any) => {
-        // Enhanced links for drug-perturbed connections
         if (visualizationMode === VisualizationMode.PERTURBED && d.strengthChange && d.strengthChange !== 1) {
           if (d.strengthChange > 1.5) {
             return '#00FF00'; // Green for enhanced interactions
@@ -772,7 +668,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
         }
         return 'var(--edge-color)'; // Theme-aware default
       })
-        .attr('stroke-width', function(d: any) { 
+        .attr('stroke-width', (d: any) => { 
           let width = Math.max(1, d.strength * 2);
           // Make drug-affected links more prominent
           if (visualizationMode === VisualizationMode.PERTURBED && d.strengthChange && d.strengthChange !== 1) {
@@ -789,11 +685,8 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
       
       // Reset category labels to full opacity
       categoryLabelsSelection.style('opacity', 1);
-      
-      console.log('Applied default styles to nodes, links, and labels');
     }
-    console.log('=== END COLOR UPDATE EFFECT ===');
-  }, [selectedNode, baselineData, individualDrugData, visualizationMode, isDarkMode, filterData, getNodeColor, getNodeOpacity, getNodeStroke, getNodeVisualEffects, getDrugEffectIndicator]);
+  }, [selectedNode, baselineData, individualDrugData, visualizationMode, isDarkMode, filterData, getNodeColor, getNodeOpacity, getNodeStroke, getNodeVisualEffects, getNodeDrugEffects]);
 
   const currentNode = selectedNode ? getCurrentData().nodes.find(n => n.id === selectedNode) : null;
   const baselineNode = selectedNode && visualizationMode === VisualizationMode.COMPARISON ? 
@@ -813,7 +706,7 @@ const PathwayVisualization: React.FC<PathwayVisualizationProps> = ({
         }}
       />
       
-      {/* Enhanced Drug Effects Panel */}
+      {/* Drug Effects Panel */}
       {visualizationMode === VisualizationMode.PERTURBED && selectedDrugs && selectedDrugs.size > 0 && (
         <div style={{ position: 'absolute', top: '20px', left: '20px' }}>
           <div className="mode-indicator" style={{ marginBottom: '12px' }}>

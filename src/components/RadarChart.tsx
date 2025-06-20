@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import * as d3 from 'd3';
-import { PathwayData, OmicsType } from '../types';
+import { PathwayData } from '../types';
 import './RadarChart.css';
 
 interface RadarChartProps {
@@ -110,12 +110,6 @@ const RadarChart: React.FC<RadarChartProps> = ({
     return drugProfiles;
   }, [data, drugData, selectedDrugs]);
 
-  // Create individual mini radar charts for each drug
-  const createMiniRadar = (drugId: string, drugProfile: RadarDataPoint[], x: number, y: number, size: number) => {
-    // This function is no longer used - removing individual profiles
-    return null;
-  };
-
   useEffect(() => {
     if (!svgRef.current || Object.keys(radarData).length === 0) return;
 
@@ -149,8 +143,6 @@ const RadarChart: React.FC<RadarChartProps> = ({
     // Axis lines and labels with dotted lines and points at the end
     axes.forEach((axis, i) => {
       const angle = angleSlice * i - Math.PI / 2;
-      const x = Math.cos(angle) * mainRadius;
-      const y = Math.sin(angle) * mainRadius;
       
       // Extended axis line (goes beyond the data area)
       const extendedRadius = mainRadius * 1.3; // Extend 30% beyond data area
@@ -193,11 +185,11 @@ const RadarChart: React.FC<RadarChartProps> = ({
 
     // Use the same drug colors as pathway visualization
     const drugColors: { [key: string]: string } = {
-      'ketamine': '#FFBF00',    // User specified
-      'etomidate': '#40E0D0',   // User specified
-      'propofol': '#DE3163',    // User specified
-      'novel1': '#6495ED',      // User specified
-      'novel2': '#77B254'       // User specified
+      'ketamine': '#FFBF00',
+      'etomidate': '#40E0D0',
+      'propofol': '#DE3163',
+      'novel1': '#6495ED',
+      'novel2': '#77B254'
     };
 
     // Draw all drug profiles on main chart
@@ -323,13 +315,6 @@ const RadarChart: React.FC<RadarChartProps> = ({
 
   return (
     <div className="radar-chart-container">
-      <div className="radar-controls">
-        <div className="control-info">
-          <h3>Drug Profile Radar</h3>
-          <p>Compare drug effects across multiple biological pathways. Each drug shows a unique profile pattern.</p>
-        </div>
-      </div>
-      
       <div className="radar-wrapper">
         <svg
           ref={svgRef}

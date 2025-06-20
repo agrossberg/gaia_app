@@ -55,6 +55,9 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
   const [selectedSystems, setSelectedSystems] = useState<Set<string>>(new Set(['all']));
   const [selectedOutcomes, setSelectedOutcomes] = useState<Set<string>>(new Set(['all']));
 
+  // Add state for filter visibility
+  const [isFiltersOpen, setIsFiltersOpen] = useState<boolean>(true);
+
   const availableDrugs = useMemo(() => (DRUG_TREATMENTS.map(d => d.id)), []);
 
   // Drug color functions - moved outside useMemo for accessibility
@@ -929,22 +932,35 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
 
   return (
     <div className="sankey-flow-container">
-      <div className="sankey-controls">
-        <div className="control-info">
-          <h3>
-            {selectedDrugs.size > 0 
-              ? `Interactive Hierarchical Drug Effects (${selectedDrugs.size} drugs selected)`
-              : 'Interactive Hierarchical Biological Flow'
-            }
-          </h3>
-          <p>
-            {selectedDrugs.size > 0 
-              ? 'Click nodes to expand/collapse sections. Visualizing hierarchical drug effects from molecular types to cellular functions to system outcomes.'
-              : 'Click nodes to expand/collapse sections. Hierarchical flow from molecular types to cellular functions to system-level outcomes.'
-            }
-          </p>
-        </div>
-        
+      <div className="sankey-controls" style={{ position: 'relative', marginTop: '-20px' }}>
+        {/* X button positioned absolutely on top right of sankey-controls container */}
+        <button
+          type="button"
+          onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+          style={{
+            position: 'absolute',
+            top: '2px',
+            right: '8px',
+            zIndex: 10,
+            background: 'none',
+            border: 'none',
+            fontSize: '18px',
+            cursor: 'pointer',
+            color: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
+            padding: '4px',
+            width: '28px',
+            height: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '4px',
+            transition: 'all 0.2s ease'
+          }}
+          title={isFiltersOpen ? 'Hide filters' : 'Show filters'}
+        >
+          {isFiltersOpen ? '×' : '+'}
+        </button>
+
         {/* Drug Legend */}
         {selectedDrugs.size > 0 && treatmentMode === 'drug' && (
           <div className="drug-legend">
@@ -978,257 +994,263 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
         )}
         
         {/* Biological Level Filters */}
-        <div className="biological-filters">
-          <div className="filter-header">
-            <h4>Filter by Biological Level:</h4>
-            <div className="toggle-group">
-              <button
-                type="button"
-                className={`toggle-button ${!isMultiSelect ? 'active' : ''}`}
-                onClick={() => {
-                  setIsMultiSelect(false);
-                  setSelectedPathways(new Set(['all']));
-                  setSelectedMolecularPathways(new Set(['all']));
-                  setSelectedCellularFunctions(new Set(['all']));
-                  setSelectedTissueTypes(new Set(['all']));
-                  setSelectedOrgans(new Set(['all']));
-                  setSelectedSystems(new Set(['all']));
-                  setSelectedOutcomes(new Set(['all']));
-                }}
-              >
-                Single Select
-              </button>
-              <button
-                type="button"
-                className={`toggle-button ${isMultiSelect ? 'active' : ''}`}
-                onClick={() => setIsMultiSelect(true)}
-              >
-                Multi Select
-              </button>
-            </div>
-          </div>
-          
-          <div className="filter-grid">
-            {/* Molecular Pathway Filter */}
-            <div className="filter-section">
-              <label>Molecular Pathways:</label>
-              <div className="filter-options">
-                {isMultiSelect ? (
-                  <div className="checkbox-group">
-                    {availableMolecularPathways.map(pathway => (
-                      <label key={pathway} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedMolecularPathways.has(pathway)}
-                          onChange={() => handleMolecularPathwaySelection(pathway)}
-                          className="filter-checkbox"
-                        />
-                        <span className="checkbox-text">
-                          {pathway === 'all' ? 'All Pathways' : pathway}
-                        </span>
-                      </label>
-                    ))}
+        <div className="biological-filters" style={{ marginTop: '8px' }}>
+          {isFiltersOpen && (
+            <>
+              <div className="filter-header">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <h4>Filter by Biological Level:</h4>
+                  <div className="toggle-group">
+                    <button
+                      type="button"
+                      className={`toggle-button ${!isMultiSelect ? 'active' : ''}`}
+                      onClick={() => {
+                        setIsMultiSelect(false);
+                        setSelectedPathways(new Set(['all']));
+                        setSelectedMolecularPathways(new Set(['all']));
+                        setSelectedCellularFunctions(new Set(['all']));
+                        setSelectedTissueTypes(new Set(['all']));
+                        setSelectedOrgans(new Set(['all']));
+                        setSelectedSystems(new Set(['all']));
+                        setSelectedOutcomes(new Set(['all']));
+                      }}
+                    >
+                      Single Select
+                    </button>
+                    <button
+                      type="button"
+                      className={`toggle-button ${isMultiSelect ? 'active' : ''}`}
+                      onClick={() => setIsMultiSelect(true)}
+                    >
+                      Multi Select
+                    </button>
                   </div>
-                ) : (
-                  <select 
-                    value={Array.from(selectedMolecularPathways)[0] || 'all'}
-                    onChange={(e) => handleMolecularPathwaySelection(e.target.value)}
-                    className="filter-select"
-                  >
-                    {availableMolecularPathways.map(pathway => (
-                      <option key={pathway} value={pathway}>
-                        {pathway === 'all' ? 'All Pathways' : pathway}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                </div>
               </div>
-            </div>
+              
+              <div className="filter-grid">
+                {/* Molecular Pathway Filter */}
+                <div className="filter-section">
+                  <label>Molecular Pathways:</label>
+                  <div className="filter-options">
+                    {isMultiSelect ? (
+                      <div className="checkbox-group">
+                        {availableMolecularPathways.map(pathway => (
+                          <label key={pathway} className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedMolecularPathways.has(pathway)}
+                              onChange={() => handleMolecularPathwaySelection(pathway)}
+                              className="filter-checkbox"
+                            />
+                            <span className="checkbox-text">
+                              {pathway === 'all' ? 'All Pathways' : pathway}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <select 
+                        value={Array.from(selectedMolecularPathways)[0] || 'all'}
+                        onChange={(e) => handleMolecularPathwaySelection(e.target.value)}
+                        className="filter-select"
+                      >
+                        {availableMolecularPathways.map(pathway => (
+                          <option key={pathway} value={pathway}>
+                            {pathway === 'all' ? 'All Pathways' : pathway}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
 
-            {/* Cellular Function Filter */}
-            <div className="filter-section">
-              <label>Cellular Functions:</label>
-              <div className="filter-options">
-                {isMultiSelect ? (
-                  <div className="checkbox-group">
-                    {['Energy Production', 'Protein Synthesis', 'Signal Transduction', 'Membrane Function'].map(func => (
-                      <label key={func} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedCellularFunctions.has(func)}
-                          onChange={() => handleCellularFunctionSelection(func)}
-                          className="filter-checkbox"
-                        />
-                        <span className="checkbox-text">
-                          {func === 'all' ? 'All Functions' : func}
-                        </span>
-                      </label>
-                    ))}
+                {/* Cellular Function Filter */}
+                <div className="filter-section">
+                  <label>Cellular Functions:</label>
+                  <div className="filter-options">
+                    {isMultiSelect ? (
+                      <div className="checkbox-group">
+                        {['Energy Production', 'Protein Synthesis', 'Signal Transduction', 'Membrane Function'].map(func => (
+                          <label key={func} className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedCellularFunctions.has(func)}
+                              onChange={() => handleCellularFunctionSelection(func)}
+                              className="filter-checkbox"
+                            />
+                            <span className="checkbox-text">
+                              {func === 'all' ? 'All Functions' : func}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <select 
+                        value={Array.from(selectedCellularFunctions)[0] || 'all'}
+                        onChange={(e) => handleCellularFunctionSelection(e.target.value)}
+                        className="filter-select"
+                      >
+                        <option value="all">All Functions</option>
+                        <option value="Energy Production">Energy Production</option>
+                        <option value="Protein Synthesis">Protein Synthesis</option>
+                        <option value="Signal Transduction">Signal Transduction</option>
+                        <option value="Membrane Function">Membrane Function</option>
+                      </select>
+                    )}
                   </div>
-                ) : (
-                  <select 
-                    value={Array.from(selectedCellularFunctions)[0] || 'all'}
-                    onChange={(e) => handleCellularFunctionSelection(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">All Functions</option>
-                    <option value="Energy Production">Energy Production</option>
-                    <option value="Protein Synthesis">Protein Synthesis</option>
-                    <option value="Signal Transduction">Signal Transduction</option>
-                    <option value="Membrane Function">Membrane Function</option>
-                  </select>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* Tissue Type Filter */}
-            <div className="filter-section">
-              <label>Tissue Types:</label>
-              <div className="filter-options">
-                {isMultiSelect ? (
-                  <div className="checkbox-group">
-                    {['Epithelial Tissue', 'Connective Tissue', 'Muscle Tissue', 'Nervous Tissue'].map(tissue => (
-                      <label key={tissue} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedTissueTypes.has(tissue)}
-                          onChange={() => handleTissueTypeSelection(tissue)}
-                          className="filter-checkbox"
-                        />
-                        <span className="checkbox-text">
-                          {tissue === 'all' ? 'All Tissues' : tissue}
-                        </span>
-                      </label>
-                    ))}
+                {/* Tissue Type Filter */}
+                <div className="filter-section">
+                  <label>Tissue Types:</label>
+                  <div className="filter-options">
+                    {isMultiSelect ? (
+                      <div className="checkbox-group">
+                        {['Epithelial Tissue', 'Connective Tissue', 'Muscle Tissue', 'Nervous Tissue'].map(tissue => (
+                          <label key={tissue} className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedTissueTypes.has(tissue)}
+                              onChange={() => handleTissueTypeSelection(tissue)}
+                              className="filter-checkbox"
+                            />
+                            <span className="checkbox-text">
+                              {tissue === 'all' ? 'All Tissues' : tissue}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <select 
+                        value={Array.from(selectedTissueTypes)[0] || 'all'}
+                        onChange={(e) => handleTissueTypeSelection(e.target.value)}
+                        className="filter-select"
+                      >
+                        <option value="all">All Tissues</option>
+                        <option value="Epithelial Tissue">Epithelial Tissue</option>
+                        <option value="Connective Tissue">Connective Tissue</option>
+                        <option value="Muscle Tissue">Muscle Tissue</option>
+                        <option value="Nervous Tissue">Nervous Tissue</option>
+                      </select>
+                    )}
                   </div>
-                ) : (
-                  <select 
-                    value={Array.from(selectedTissueTypes)[0] || 'all'}
-                    onChange={(e) => handleTissueTypeSelection(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">All Tissues</option>
-                    <option value="Epithelial Tissue">Epithelial Tissue</option>
-                    <option value="Connective Tissue">Connective Tissue</option>
-                    <option value="Muscle Tissue">Muscle Tissue</option>
-                    <option value="Nervous Tissue">Nervous Tissue</option>
-                  </select>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* Organ Filter */}
-            <div className="filter-section">
-              <label>Organs:</label>
-              <div className="filter-options">
-                {isMultiSelect ? (
-                  <div className="checkbox-group">
-                    {['Heart', 'Lungs', 'Brain', 'Liver', 'Kidneys', 'Stomach'].map(organ => (
-                      <label key={organ} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedOrgans.has(organ)}
-                          onChange={() => handleOrganSelection(organ)}
-                          className="filter-checkbox"
-                        />
-                        <span className="checkbox-text">
-                          {organ === 'all' ? 'All Organs' : organ}
-                        </span>
-                      </label>
-                    ))}
+                {/* Organ Filter */}
+                <div className="filter-section">
+                  <label>Organs:</label>
+                  <div className="filter-options">
+                    {isMultiSelect ? (
+                      <div className="checkbox-group">
+                        {['Heart', 'Lungs', 'Brain', 'Liver', 'Kidneys', 'Stomach'].map(organ => (
+                          <label key={organ} className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedOrgans.has(organ)}
+                              onChange={() => handleOrganSelection(organ)}
+                              className="filter-checkbox"
+                            />
+                            <span className="checkbox-text">
+                              {organ === 'all' ? 'All Organs' : organ}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <select 
+                        value={Array.from(selectedOrgans)[0] || 'all'}
+                        onChange={(e) => handleOrganSelection(e.target.value)}
+                        className="filter-select"
+                      >
+                        <option value="all">All Organs</option>
+                        <option value="Heart">Heart</option>
+                        <option value="Lungs">Lungs</option>
+                        <option value="Brain">Brain</option>
+                        <option value="Liver">Liver</option>
+                        <option value="Kidneys">Kidneys</option>
+                        <option value="Stomach">Stomach</option>
+                      </select>
+                    )}
                   </div>
-                ) : (
-                  <select 
-                    value={Array.from(selectedOrgans)[0] || 'all'}
-                    onChange={(e) => handleOrganSelection(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">All Organs</option>
-                    <option value="Heart">Heart</option>
-                    <option value="Lungs">Lungs</option>
-                    <option value="Brain">Brain</option>
-                    <option value="Liver">Liver</option>
-                    <option value="Kidneys">Kidneys</option>
-                    <option value="Stomach">Stomach</option>
-                  </select>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* System Filter */}
-            <div className="filter-section">
-              <label>Systems:</label>
-              <div className="filter-options">
-                {isMultiSelect ? (
-                  <div className="checkbox-group">
-                    {['Cardiovascular System', 'Respiratory System', 'Nervous System', 'Digestive System', 'Excretory System'].map(system => (
-                      <label key={system} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedSystems.has(system)}
-                          onChange={() => handleSystemSelection(system)}
-                          className="filter-checkbox"
-                        />
-                        <span className="checkbox-text">
-                          {system === 'all' ? 'All Systems' : system}
-                        </span>
-                      </label>
-                    ))}
+                {/* System Filter */}
+                <div className="filter-section">
+                  <label>Systems:</label>
+                  <div className="filter-options">
+                    {isMultiSelect ? (
+                      <div className="checkbox-group">
+                        {['Cardiovascular System', 'Respiratory System', 'Nervous System', 'Digestive System', 'Excretory System'].map(system => (
+                          <label key={system} className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedSystems.has(system)}
+                              onChange={() => handleSystemSelection(system)}
+                              className="filter-checkbox"
+                            />
+                            <span className="checkbox-text">
+                              {system === 'all' ? 'All Systems' : system}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <select 
+                        value={Array.from(selectedSystems)[0] || 'all'}
+                        onChange={(e) => handleSystemSelection(e.target.value)}
+                        className="filter-select"
+                      >
+                        <option value="all">All Systems</option>
+                        <option value="Cardiovascular System">Cardiovascular System</option>
+                        <option value="Respiratory System">Respiratory System</option>
+                        <option value="Nervous System">Nervous System</option>
+                        <option value="Digestive System">Digestive System</option>
+                        <option value="Excretory System">Excretory System</option>
+                      </select>
+                    )}
                   </div>
-                ) : (
-                  <select 
-                    value={Array.from(selectedSystems)[0] || 'all'}
-                    onChange={(e) => handleSystemSelection(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">All Systems</option>
-                    <option value="Cardiovascular System">Cardiovascular System</option>
-                    <option value="Respiratory System">Respiratory System</option>
-                    <option value="Nervous System">Nervous System</option>
-                    <option value="Digestive System">Digestive System</option>
-                    <option value="Excretory System">Excretory System</option>
-                  </select>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* Outcome Filter */}
-            <div className="filter-section">
-              <label>Outcomes:</label>
-              <div className="filter-options">
-                {isMultiSelect ? (
-                  <div className="checkbox-group">
-                    {['Hypertension', 'Analgesia', 'Hypothermia', 'Unconsciousness', 'Hypotonia'].map(outcome => (
-                      <label key={outcome} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedOutcomes.has(outcome)}
-                          onChange={() => handleOutcomeSelection(outcome)}
-                          className="filter-checkbox"
-                        />
-                        <span className="checkbox-text">
-                          {outcome === 'all' ? 'All Outcomes' : outcome}
-                        </span>
-                      </label>
-                    ))}
+                {/* Outcome Filter */}
+                <div className="filter-section">
+                  <label>Outcomes:</label>
+                  <div className="filter-options">
+                    {isMultiSelect ? (
+                      <div className="checkbox-group">
+                        {['Hypertension', 'Analgesia', 'Hypothermia', 'Unconsciousness', 'Hypotonia'].map(outcome => (
+                          <label key={outcome} className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedOutcomes.has(outcome)}
+                              onChange={() => handleOutcomeSelection(outcome)}
+                              className="filter-checkbox"
+                            />
+                            <span className="checkbox-text">
+                              {outcome === 'all' ? 'All Outcomes' : outcome}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <select 
+                        value={Array.from(selectedOutcomes)[0] || 'all'}
+                        onChange={(e) => handleOutcomeSelection(e.target.value)}
+                        className="filter-select"
+                      >
+                        <option value="all">All Outcomes</option>
+                        <option value="Hypertension">Hypertension</option>
+                        <option value="Analgesia">Analgesia</option>
+                        <option value="Hypothermia">Hypothermia</option>
+                        <option value="Unconsciousness">Unconsciousness</option>
+                        <option value="Hypotonia">Hypotonia</option>
+                      </select>
+                    )}
                   </div>
-                ) : (
-                  <select 
-                    value={Array.from(selectedOutcomes)[0] || 'all'}
-                    onChange={(e) => handleOutcomeSelection(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">All Outcomes</option>
-                    <option value="Hypertension">Hypertension</option>
-                    <option value="Analgesia">Analgesia</option>
-                    <option value="Hypothermia">Hypothermia</option>
-                    <option value="Unconsciousness">Unconsciousness</option>
-                    <option value="Hypotonia">Hypotonia</option>
-                  </select>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </div>
       

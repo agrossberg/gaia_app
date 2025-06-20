@@ -324,7 +324,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           
           x = col * spacing - gridOffsetX;
           z = row * spacing - gridOffsetZ;
-          y = level.y; // Fixed Y position creates distinct layers
+          y = level.y;
           
           // Add minimal randomization to make it more organic while keeping grid structure
           x += (Math.random() - 0.5) * 5;
@@ -1257,41 +1257,36 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       onMouseDown={handleGraphMouseDown}
       onMouseUp={handleMouseUp}
     >
-      {/* View Mode Controls - without title/subtitle */}
-      <div className="view-mode-controls">
-        <div className="view-mode-buttons">
-          <button 
-            className={`view-mode-btn ${viewMode === 'organic' ? 'active' : ''}`}
-            onClick={() => setViewMode('organic')}
-            title="Organic cloud-like layout"
-          >
-            ◯
-          </button>
-          <button 
-            className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
-            onClick={() => setViewMode('grid')}
-            title="3D grid hierarchical layout"
-          >
-            ⬜
-          </button>
-        </div>
-        <button 
-          className="view-mode-btn reset-btn"
+      <div className="view-controls-container">
+        <button
+          className={`view-control-btn ${viewMode === 'organic' ? 'active' : ''}`}
+          onClick={() => setViewMode('organic')}
+          title="Organic cloud-like layout"
+        >
+          <span role="img" aria-label="Organic Layout">◯</span>
+        </button>
+        <button
+          className={`view-control-btn ${viewMode === 'grid' ? 'active' : ''}`}
+          onClick={() => setViewMode('grid')}
+          title="3D grid hierarchical layout"
+        >
+          <span role="img" aria-label="Grid Layout" style={{ fontSize: '28px' }}>⊞</span>
+        </button>
+        <button
+          className="view-control-btn"
           onClick={handleResetPosition}
           title="Reset camera position"
         >
-          ⟲
+          <span role="img" aria-label="Reset Position" style={{ fontSize: '26px' }}>⟲</span>
+        </button>
+        <button
+          className={`view-control-btn ${isPanModeActive ? 'active' : ''}`}
+          onClick={togglePanMode}
+          title={isPanModeActive ? "Switch to rotation mode" : "Switch to pan mode"}
+        >
+          <span role="img" aria-label="Pan Mode">P</span>
         </button>
       </div>
-
-      {/* Pan Mode Toggle Button */}
-      <button 
-        className={`pan-control-btn ${isPanModeActive ? 'active' : ''}`}
-        onClick={togglePanMode}
-        title={isPanModeActive ? "Switch to rotation mode" : "Switch to pan mode"}
-      >
-        {isPanModeActive ? '✋' : '👆'}
-      </button>
 
       {/* Toggle button when panel is hidden */}
       {!isPanelVisible && (
@@ -1557,7 +1552,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         linkCurvature={linkCurvature} // Add curvature for bundling effect
         linkDirectionalParticles={0}
         
-        // Enhanced force simulation settings with edge bundling
+        // Force simulation settings with edge bundling
         d3AlphaDecay={viewMode === 'grid' ? 1 : 0.01} // Disable physics in grid mode
         d3VelocityDecay={viewMode === 'grid' ? 1 : 0.3} // Stop movement in grid mode
         cooldownTicks={viewMode === 'grid' ? 0 : 500} // No simulation in grid mode
