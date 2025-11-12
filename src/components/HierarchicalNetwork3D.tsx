@@ -539,7 +539,6 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
             }
           }
         }
-      }
     });
 
     // --- Create Intra-Layer Connections ---
