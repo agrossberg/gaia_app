@@ -114,36 +114,36 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           systemLabels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'],
           organCount: 10,
           tissueCount: 4,
-          cellularCount: 120,
-          molecularCount: 150, // Much fewer, more connected
-          connectionDensity: 0.8,
+          cellularCount: 80,
+          molecularCount: 100,
+          connectionDensity: 0.7,
           organLabels: ['Heart', 'Brain', 'Spinal Cord', 'Liver', 'Kidney', 'Lung', 'Adrenals', 'Thyroid', 'Blood Vessels', 'Nervous System']
         },
         aspirin: {
           systemLabels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'],
           organCount: 8,
           tissueCount: 3,
-          cellularCount: 80,
-          molecularCount: 100,
-          connectionDensity: 0.6,
+          cellularCount: 60,
+          molecularCount: 70,
+          connectionDensity: 0.5,
           organLabels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Stomach', 'Blood', 'Platelets', 'Vessels']
         },
         morphine: {
           systemLabels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'],
           organCount: 12,
           tissueCount: 2,
-          cellularCount: 150,
-          molecularCount: 200,
-          connectionDensity: 0.9,
+          cellularCount: 100,
+          molecularCount: 130,
+          connectionDensity: 0.75,
           organLabels: ['Brain', 'Spinal Cord', 'Heart', 'Lung', 'Liver', 'Kidney', 'GI Tract', 'CNS', 'PNS', 'Receptors', 'Synapses', 'Neurons']
         }
       }[selectedDrug.id] || {
         systemLabels: ['Hypertension', 'Hypothermia', 'Unconsciousness', 'Analgesia'],
         organCount: 8,
         tissueCount: 1,
-        cellularCount: 100,
-        molecularCount: 120,
-        connectionDensity: 0.7,
+        cellularCount: 70,
+        molecularCount: 90,
+        connectionDensity: 0.6,
         organLabels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Lung', 'Spleen', 'Thyroid', 'Blood']
       } : null;
 
@@ -228,7 +228,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           },
           { 
             name: 'organs', 
-            count: 75,
+            count: 50,
             modules: 2,
             y: 250, 
             size: 12,
@@ -252,7 +252,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           },
           { 
             name: 'cellular', 
-            count: 150,
+            count: 100,
             modules: 8,
             y: 50, 
             size: 6,
@@ -264,7 +264,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           },
           { 
             name: 'molecular', 
-            count: 4080, // Much fewer floating particles
+            count: 2000, // Reduced for better performance
             modules: 10,
             y: -50, 
             size: 4,
@@ -282,10 +282,10 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     
     // Get drug configuration for connection density
     const drugConfig = selectedDrug ? {
-      ketamine: { connectionDensity: 0.8 },
-      aspirin: { connectionDensity: 0.6 },
-      morphine: { connectionDensity: 0.9 }
-    }[selectedDrug.id] || { connectionDensity: 0.7 } : null;
+      ketamine: { connectionDensity: 0.7 },
+      aspirin: { connectionDensity: 0.5 },
+      morphine: { connectionDensity: 0.75 }
+    }[selectedDrug.id] || { connectionDensity: 0.6 } : null;
     
     const levelNodes: { [key: string]: string[] } = {};
     const moduleNodes: { [key: string]: { [module: number]: string[] } } = {};
@@ -438,7 +438,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     });
 
     // Create connections - different logic for grid vs organic modes
-    const connectionDensity = selectedDrug && drugConfig ? drugConfig.connectionDensity : 0.5;
+    const connectionDensity = selectedDrug && drugConfig ? drugConfig.connectionDensity : 0.6;
     
     // --- Create Inter-Layer Connections ---
     hierarchyLevels.forEach((level, levelIndex) => {
