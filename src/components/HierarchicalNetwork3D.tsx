@@ -128,7 +128,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           tissueCount: 4,
           cellularCount: 80,
           molecularCount: 100,
-          connectionDensity: 0.7,
+          connectionDensity: 0.4,
           organLabels: ['Heart', 'Brain', 'Spinal Cord', 'Liver', 'Kidney', 'Lung', 'Adrenals', 'Thyroid', 'Blood Vessels', 'Nervous System']
         },
         aspirin: {
@@ -137,7 +137,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           tissueCount: 3,
           cellularCount: 60,
           molecularCount: 70,
-          connectionDensity: 0.5,
+          connectionDensity: 0.3,
           organLabels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Stomach', 'Blood', 'Platelets', 'Vessels']
         },
         morphine: {
@@ -146,7 +146,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
           tissueCount: 2,
           cellularCount: 100,
           molecularCount: 130,
-          connectionDensity: 0.75,
+          connectionDensity: 0.45,
           organLabels: ['Brain', 'Spinal Cord', 'Heart', 'Lung', 'Liver', 'Kidney', 'GI Tract', 'CNS', 'PNS', 'Receptors', 'Synapses', 'Neurons']
         }
       }[selectedDrug.id] || {
@@ -155,7 +155,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
         tissueCount: 1,
         cellularCount: 70,
         molecularCount: 90,
-        connectionDensity: 0.6,
+        connectionDensity: 0.35,
         organLabels: ['Heart', 'Brain', 'Liver', 'Kidney', 'Lung', 'Spleen', 'Thyroid', 'Blood']
       } : null;
 
@@ -294,10 +294,10 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     
     // Get drug configuration for connection density
     const drugConfig = selectedDrug ? {
-      ketamine: { connectionDensity: 0.7 },
-      aspirin: { connectionDensity: 0.5 },
-      morphine: { connectionDensity: 0.75 }
-    }[selectedDrug.id] || { connectionDensity: 0.6 } : null;
+      ketamine: { connectionDensity: 0.4 },
+      aspirin: { connectionDensity: 0.3 },
+      morphine: { connectionDensity: 0.45 }
+    }[selectedDrug.id] || { connectionDensity: 0.35 } : null;
     
     const levelNodes: { [key: string]: string[] } = {};
     const moduleNodes: { [key: string]: { [module: number]: string[] } } = {};
@@ -450,7 +450,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     });
 
     // Create connections - different logic for grid vs organic modes
-    const connectionDensity = selectedDrug && drugConfig ? drugConfig.connectionDensity : 0.6;
+    const connectionDensity = selectedDrug && drugConfig ? drugConfig.connectionDensity : 0.35;
     
     // --- Create Inter-Layer Connections ---
     hierarchyLevels.forEach((level, levelIndex) => {
@@ -481,7 +481,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
               if (deterministicRandom(systemNodeId, organIndex) < connectionDensity) links.push({ source: systemNodeId, target: organId, color: isDarkMode ? `rgba(255, 107, 53, 0.7)` : `rgba(229, 81, 0, 0.9)`, width: 3.0 });
             });
             const tissueNodes = levelNodes['tissues'] || [];
-            const connectionsCount = selectedDrug ? Math.floor(tissueNodes.length * 0.4) : Math.floor(tissueNodes.length * 0.2);
+            const connectionsCount = selectedDrug ? Math.floor(tissueNodes.length * 0.25) : Math.floor(tissueNodes.length * 0.15);
             for (let i = 0; i < connectionsCount; i++) {
               const targetIndex = Math.floor(deterministicRandom(systemNodeId, i) * tissueNodes.length);
               const targetId = tissueNodes[targetIndex];
@@ -492,14 +492,14 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
            // Organs connect to tissues and cellular
           currentNodes.forEach((organNodeId, organIndex) => {
             const tissueNodes = levelNodes['tissues'] || [];
-            let connectionsCount = Math.floor(tissueNodes.length * connectionDensity * 0.3);
+            let connectionsCount = Math.floor(tissueNodes.length * connectionDensity * 0.2);
             for (let i = 0; i < connectionsCount; i++) {
               const targetIndex = Math.floor(deterministicRandom(organNodeId, i) * tissueNodes.length);
               const targetId = tissueNodes[targetIndex];
               if (targetId) links.push({ source: organNodeId, target: targetId, color: isDarkMode ? `rgba(79, 179, 217, 0.6)` : `rgba(25, 118, 210, 0.8)`, width: 1.5 });
             }
             const cellularNodes = levelNodes['cellular'] || [];
-            connectionsCount = Math.floor(cellularNodes.length * connectionDensity * 0.2);
+            connectionsCount = Math.floor(cellularNodes.length * connectionDensity * 0.12);
              for (let i = 0; i < connectionsCount; i++) {
               const targetIndex = Math.floor(deterministicRandom(organNodeId, i + 1000) * cellularNodes.length);
               const targetId = cellularNodes[targetIndex];
@@ -517,7 +517,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
               if (currentModuleNodes && targetModuleNodes) {
                 currentModuleNodes.forEach((higherNodeId, nodeIndex) => {
                   const isMolecularTarget = nextLevel.name === 'molecular';
-                  const baseConnections = isMolecularTarget ? Math.max(2, Math.floor(targetModuleNodes.length / currentModuleNodes.length)) : Math.max(1, Math.floor(targetModuleNodes.length / currentModuleNodes.length / 2));
+                  const baseConnections = isMolecularTarget ? Math.max(1, Math.floor(targetModuleNodes.length / currentModuleNodes.length / 2)) : Math.max(1, Math.floor(targetModuleNodes.length / currentModuleNodes.length / 3));
                   const connectionsCount = Math.floor(baseConnections * connectionDensity);
                   for (let i = 0; i < connectionsCount; i++) {
                     const targetIndex = Math.floor(deterministicRandom(higherNodeId, currentModule * 1000 + nodeIndex * 100 + i) * targetModuleNodes.length);
@@ -549,7 +549,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       for (let moduleId = 0; moduleId < level.modules; moduleId++) {
         const moduleNodeIds = moduleNodes[level.name][moduleId];
         if (!moduleNodeIds || moduleNodeIds.length < 2) continue;
-        const intraConnections = Math.min(moduleNodeIds.length * (selectedDrug ? 0.25 : 0.2), 15);
+        const intraConnections = Math.min(moduleNodeIds.length * (selectedDrug ? 0.15 : 0.12), 8);
         for (let i = 0; i < intraConnections; i++) {
           const node1Index = Math.floor(deterministicRandom(`${level.name}_${moduleId}`, i * 2) * moduleNodeIds.length);
           const node2Index = Math.floor(deterministicRandom(`${level.name}_${moduleId}`, i * 2 + 1) * moduleNodeIds.length);
@@ -560,7 +560,7 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
       }
     });
      // Fewer bundled molecular streams with drug emphasis
-    const streamCount = selectedDrug ? 100 : 60;
+    const streamCount = selectedDrug ? 40 : 30;
     for (let i = 0; i < streamCount; i++) {
       const level1 = Math.floor(deterministicRandom('stream', i * 3) * hierarchyLevels.length);
       const level2 = Math.floor(deterministicRandom('stream', i * 3 + 1) * hierarchyLevels.length);
