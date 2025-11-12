@@ -1,12 +1,12 @@
 {
   "files": {
     "main.css": "/gaia_app/static/css/main.e245c89e.css",
-    "main.js": "/gaia_app/static/js/main.920b7a21.js",
+    "main.js": "/gaia_app/static/js/main.6e927e29.js",
     "static/js/206.8a2585ff.chunk.js": "/gaia_app/static/js/206.8a2585ff.chunk.js",
     "index.html": "/gaia_app/index.html"
   },
   "entrypoints": [
     "static/css/main.e245c89e.css",
-    "static/js/main.920b7a21.js"
+    "static/js/main.6e927e29.js"
   ]
 }
