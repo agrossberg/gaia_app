@@ -292,6 +292,7 @@ body.light-mode .theme-toggle::before {
   width: 100%;
   height: calc(100vh - 200px); /* Set explicit height instead of auto */
   min-height: calc(100vh - 200px); /* Account for header and controls */
+  padding-bottom: 60px; /* Add padding to prevent footer overlap */
 }
 
 /* Dashboard Styles */
@@ -1373,6 +1374,9 @@ body.light-mode .node-type-button.transcripts.active {
   opacity: 0.8;
   margin-top: auto;
   width: 100%;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .static-footer p {
