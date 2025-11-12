@@ -33,7 +33,7 @@ const VISUALIZATION_TILES: VisualizationTile[] = [
   {
     id: 'network3d',
     title: '3D Force Graph',
-    description: 'Professional 3D network visualization with force-directed layout and interactions',
+    description: 'Interactive 3D hierarchical network exploring biological systems from molecular to organismal scales',
     category: 'molecular',
     status: 'active',
     icon: '🌌'
@@ -953,7 +953,6 @@ function App() {
                 title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
               >
               </button>
-              <span className="nav-item">Setup</span>
               <span 
                 className={`nav-item ${currentView !== 'dashboard' ? 'dashboard-nav' : ''}`}
                 onClick={handleDashboardClick}
@@ -961,7 +960,6 @@ function App() {
               >
                 Dashboard
               </span>
-              <span className="nav-item">Sign-In</span>
             </div>
           </div>
         </div>
