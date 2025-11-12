@@ -79,8 +79,8 @@ function App() {
   // Core application states
   const [baselineData, setBaselineData] = useState<PathwayData>({ nodes: [], links: [], pathways: [] });
   const [dimensions, setDimensions] = useState({
-    width: Math.max(2000, window.innerWidth * 1.8),
-    height: Math.max(1800, window.innerHeight * 2)
+    width: Math.max(window.innerWidth - 40, 1200), // More reasonable sizing for laptops
+    height: Math.max(window.innerHeight - 200, 800) // Account for header and controls
   });
 
   // Control states
@@ -114,8 +114,8 @@ function App() {
   useEffect(() => {
     const handleResize = () => {
       setDimensions({
-        width: Math.max(2000, window.innerWidth * 1.8),
-        height: Math.max(1800, window.innerHeight * 2)
+        width: Math.max(window.innerWidth - 40, 1200), // More reasonable sizing for laptops
+        height: Math.max(window.innerHeight - 200, 800) // Account for header and controls
       });
     };
 

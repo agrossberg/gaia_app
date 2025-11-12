@@ -44,10 +44,10 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedPathways, setSelectedPathways] = useState<Set<string>>(new Set(['all']));
   const [isMultiSelect, setIsMultiSelect] = useState<boolean>(false);
   
   // Add state for all biological level filters
+  const [selectedMolecularTypes, setSelectedMolecularTypes] = useState<Set<string>>(new Set(['all']));
   const [selectedMolecularPathways, setSelectedMolecularPathways] = useState<Set<string>>(new Set(['all']));
   const [selectedCellularFunctions, setSelectedCellularFunctions] = useState<Set<string>>(new Set(['all']));
   const [selectedTissueTypes, setSelectedTissueTypes] = useState<Set<string>>(new Set(['all']));
@@ -181,43 +181,46 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
     return ['all', ...Array.from(outcomes).sort()];
   }, [data]);
 
-  // Generic filter handler function
-  const createFilterHandler = (
-    selectedSet: Set<string>,
-    setSelectedSet: React.Dispatch<React.SetStateAction<Set<string>>>,
-    isMultiSelectMode: boolean
+  // Generic filter handler function - use functional updates to always get latest state
+  const createFilterHandler = useCallback((
+    setSelectedSet: React.Dispatch<React.SetStateAction<Set<string>>>
   ) => {
     return (value: string) => {
-      if (isMultiSelectMode) {
-        const newSelected = new Set(selectedSet);
-        if (value === 'all') {
-          newSelected.clear();
-          newSelected.add('all');
-        } else {
-          newSelected.delete('all');
-          if (newSelected.has(value)) {
-            newSelected.delete(value);
-            if (newSelected.size === 0) {
-              newSelected.add('all');
-            }
+      if (isMultiSelect) {
+        // Use functional update to get the latest state
+        setSelectedSet(prevSelected => {
+          const newSelected = new Set(prevSelected);
+          if (value === 'all') {
+            newSelected.clear();
+            newSelected.add('all');
           } else {
-            newSelected.add(value);
+            newSelected.delete('all');
+            if (newSelected.has(value)) {
+              newSelected.delete(value);
+              if (newSelected.size === 0) {
+                newSelected.add('all');
+              }
+            } else {
+              newSelected.add(value);
+            }
           }
-        }
-        setSelectedSet(newSelected);
+          return newSelected;
+        });
       } else {
+        // Single select mode - always set to the clicked value
         setSelectedSet(new Set([value]));
       }
     };
-  };
+  }, [isMultiSelect]);
 
-  // Create specific filter handlers
-  const handleMolecularPathwaySelection = createFilterHandler(selectedMolecularPathways, setSelectedMolecularPathways, isMultiSelect);
-  const handleCellularFunctionSelection = createFilterHandler(selectedCellularFunctions, setSelectedCellularFunctions, isMultiSelect);
-  const handleTissueTypeSelection = createFilterHandler(selectedTissueTypes, setSelectedTissueTypes, isMultiSelect);
-  const handleOrganSelection = createFilterHandler(selectedOrgans, setSelectedOrgans, isMultiSelect);
-  const handleSystemSelection = createFilterHandler(selectedSystems, setSelectedSystems, isMultiSelect);
-  const handleOutcomeSelection = createFilterHandler(selectedOutcomes, setSelectedOutcomes, isMultiSelect);
+  // Create specific filter handlers - these will be recreated when isMultiSelect changes
+  const handleMolecularTypeSelection = createFilterHandler(setSelectedMolecularTypes);
+  const handleMolecularPathwaySelection = createFilterHandler(setSelectedMolecularPathways);
+  const handleCellularFunctionSelection = createFilterHandler(setSelectedCellularFunctions);
+  const handleTissueTypeSelection = createFilterHandler(setSelectedTissueTypes);
+  const handleOrganSelection = createFilterHandler(setSelectedOrgans);
+  const handleSystemSelection = createFilterHandler(setSelectedSystems);
+  const handleOutcomeSelection = createFilterHandler(setSelectedOutcomes);
 
   // Process data into hierarchical tree structure
   const treeData = useMemo(() => {
@@ -339,15 +342,10 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
       return colors[category] || '#888888';
     }
 
-    // Filter nodes by selected pathways
-    const filteredNodes = selectedPathways.has('all') 
-      ? data.nodes 
-      : data.nodes.filter(node => selectedPathways.has(node.pathway));
-
-    // Group molecular data by omics type first, then by pathway
+    // Group molecular data by omics type first, then by pathway (don't filter yet - filter at pathway node level)
     const molecularByType = new Map<OmicsType, Map<string, number>>();
     
-    filteredNodes.forEach(node => {
+    data.nodes.forEach(node => {
       if (!molecularByType.has(node.type)) {
         molecularByType.set(node.type, new Map());
       }
@@ -356,9 +354,24 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
       pathwayMap.set(node.pathway, currentValue + (node.expression || 0.5));
     });
 
-    // Create molecular level nodes (4 main types)
+    // Create molecular level nodes (4 main types) - filter by selected molecular types
     const molecularNodes: TreeNode[] = [];
+    
+    // Map OmicsType enum values to filter string values
+    const omicsTypeToFilterMap: { [key: string]: string } = {
+      [OmicsType.PROTEIN]: 'PROTEIN',        // 'proteins' -> 'PROTEIN'
+      [OmicsType.METABOLITE]: 'METABOLITE',  // 'metabolites' -> 'METABOLITE'
+      [OmicsType.LIPID]: 'LIPID',            // 'lipids' -> 'LIPID'
+      [OmicsType.mRNA]: 'mRNA'               // 'mRNA transcripts' -> 'mRNA'
+    };
+    
     molecularByType.forEach((pathwayMap, omicsType) => {
+      // Filter by selected molecular types - map enum value to filter value
+      const filterValue = omicsTypeToFilterMap[omicsType];
+      if (!selectedMolecularTypes.has('all') && filterValue && !selectedMolecularTypes.has(filterValue)) {
+        return; // Skip this omics type if not selected
+      }
+      
       const totalValue = Array.from(pathwayMap.values()).reduce((sum, val) => sum + val, 0);
       
       molecularNodes.push({
@@ -369,22 +382,27 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
         value: totalValue,
         color: getOmicsColor(omicsType),
         drugEffects: {},
-        children: Array.from(pathwayMap.entries()).map(([pathway, value]) => {
-          const drugEffects = calculateDrugEffects(pathway, omicsType);
-          const avgDrugEffect = Object.values(drugEffects).reduce((sum, effect) => sum + effect, 0) / Object.keys(drugEffects).length || 0;
-          
-          return {
-            id: `mol_${omicsType}_${pathway}`,
-            name: pathway,
-            category: 'molecular',
-            level: 1,
-        value: value,
-            color: getOmicsColor(omicsType),
-            drugEffect: avgDrugEffect,
-            drugEffects: drugEffects,
-            pathway: pathway
-          };
-        })
+        children: Array.from(pathwayMap.entries())
+          .filter(([pathway, value]) => {
+            // Filter pathways based on selectedMolecularPathways
+            return selectedMolecularPathways.has('all') || selectedMolecularPathways.has(pathway);
+          })
+          .map(([pathway, value]) => {
+            const drugEffects = calculateDrugEffects(pathway, omicsType);
+            const avgDrugEffect = Object.values(drugEffects).reduce((sum, effect) => sum + effect, 0) / Object.keys(drugEffects).length || 0;
+            
+            return {
+              id: `mol_${omicsType}_${pathway}`,
+              name: pathway,
+              category: 'molecular',
+              level: 1,
+          value: value,
+              color: getOmicsColor(omicsType),
+              drugEffect: avgDrugEffect,
+              drugEffects: drugEffects,
+              pathway: pathway
+            };
+          })
       });
     });
 
@@ -398,17 +416,127 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
       if (molNode.children) {
         molNode.children.forEach(pathwayNode => {
           // Find related cellular categories for this pathway
-          const relatedCellularCategories = cellularCategories.filter(category =>
-            (pathwayNode.name.toLowerCase().includes(category.toLowerCase()) ||
-            (category === 'Energy Production' && pathwayNode.name.toLowerCase().includes('metabolism')) ||
-            (category === 'Protein Synthesis' && pathwayNode.name.toLowerCase().includes('protein')) ||
-            (category === 'Signal Transduction' && pathwayNode.name.toLowerCase().includes('signal')) ||
-            (category === 'Membrane Function' && pathwayNode.name.toLowerCase().includes('lipid'))) &&
-            shouldIncludeNode(category, 'cellular')
-          );
+          // A pathway can match MULTIPLE cellular categories (e.g., "Lipid Metabolism" matches both Energy Production and Membrane Function)
+          // Improved matching logic to handle more pathways and allow multiple matches
+          const pathwayNameLower = pathwayNode.name.toLowerCase();
+          const relatedCellularCategories = cellularCategories.filter(category => {
+            // Match pathways to cellular categories - pathways can match MULTIPLE categories
+            // Each category is checked independently, so a pathway can match multiple categories
+            // First, check if the pathway matches this cellular category
+            const categoryLower = category.toLowerCase();
+            let matches = false;
+            
+            // Direct name match
+            if (pathwayNameLower.includes(categoryLower)) {
+              matches = true;
+            }
+            // Energy Production matches
+            else if (category === 'Energy Production') {
+              matches = (
+                pathwayNameLower.includes('metabolism') ||
+                pathwayNameLower.includes('respiration') ||
+                pathwayNameLower.includes('mtor') ||
+                pathwayNameLower.includes('glucose') ||
+                pathwayNameLower.includes('thermogenesis') ||
+                pathwayNameLower.includes('heat shock') ||
+                pathwayNameLower.includes('calcium handling') ||
+                pathwayNameLower.includes('cardiac conduction') ||
+                pathwayNameLower.includes('brown fat')
+              );
+            }
+            // Protein Synthesis matches
+            else if (category === 'Protein Synthesis') {
+              matches = (
+                pathwayNameLower.includes('protein') ||
+                pathwayNameLower.includes('synthesis') ||
+                pathwayNameLower.includes('folding') ||
+                pathwayNameLower.includes('damage response') ||
+                pathwayNameLower.includes('immunity') || // Immune responses involve protein synthesis (antibodies, cytokines)
+                pathwayNameLower.includes('immune') || // Immune system requires protein synthesis
+                pathwayNameLower.includes('adaptive') || // Adaptive immunity involves antibody production
+                pathwayNameLower.includes('innate') // Innate immunity involves protein synthesis
+              );
+            }
+            // Signal Transduction matches
+            else if (category === 'Signal Transduction') {
+              matches = (
+                pathwayNameLower.includes('signal') ||
+                pathwayNameLower.includes('signaling') ||
+                pathwayNameLower.includes('defense') ||
+                pathwayNameLower.includes('antioxidant') ||
+                pathwayNameLower.includes('response') ||
+                pathwayNameLower.includes('cytokine') ||
+                pathwayNameLower.includes('circadian') ||
+                pathwayNameLower.includes('melatonin') ||
+                pathwayNameLower.includes('renin') ||
+                pathwayNameLower.includes('angiotensin') ||
+                pathwayNameLower.includes('autonomic') ||
+                pathwayNameLower.includes('adrenergic') ||
+                pathwayNameLower.includes('baroreceptor') ||
+                pathwayNameLower.includes('innate') ||
+                pathwayNameLower.includes('adaptive') ||
+                pathwayNameLower.includes('immunity') || // Immune pathways involve signal transduction
+                pathwayNameLower.includes('immune') || // Immune system uses signal transduction
+                pathwayNameLower.includes('inflammation') ||
+                pathwayNameLower.includes('sleep') ||
+                pathwayNameLower.includes('light') ||
+                pathwayNameLower.includes('dark') ||
+                pathwayNameLower.includes('hypothalamic') ||
+                pathwayNameLower.includes('ros production') ||
+                pathwayNameLower.includes('dna damage')
+              );
+            }
+            // Membrane Function matches
+            else if (category === 'Membrane Function') {
+              matches = (
+                pathwayNameLower.includes('lipid') ||
+                pathwayNameLower.includes('membrane') ||
+                pathwayNameLower.includes('vascular') ||
+                pathwayNameLower.includes('tone') ||
+                pathwayNameLower.includes('sodium') ||
+                pathwayNameLower.includes('balance')
+              );
+            }
+            
+            return matches;
+          }).filter(category => {
+            // Apply cellular function filter AFTER matching
+            // This ensures we find all matching categories first, then filter if needed
+            return shouldIncludeNode(category, 'cellular');
+          });
+          
+          // If no matches found, assign a default cellular category based on pathway type
+          // This ensures pathway nodes always have children and the tree doesn't collapse
+          let finalCellularCategories = relatedCellularCategories;
+          
+          // When cellular function filter is 'all' and we have matches, ensure we show all matches
+          // When cellular function filter is 'all' and we have no matches, show all cellular functions
+          if (selectedCellularFunctions.has('all')) {
+            if (finalCellularCategories.length === 0) {
+              // No matches found, show all cellular functions when filter is 'all'
+              finalCellularCategories = cellularCategories.filter(cat => shouldIncludeNode(cat, 'cellular'));
+            }
+            // If we have matches, finalCellularCategories already contains all matches (filtered by 'all')
+          } else {
+            // Cellular function filter is specific, only show matches that pass the filter
+            if (finalCellularCategories.length === 0) {
+              // Default to Signal Transduction if pathway doesn't match any category
+              // but only if Signal Transduction is not filtered out
+              if (shouldIncludeNode('Signal Transduction', 'cellular')) {
+                finalCellularCategories = ['Signal Transduction'];
+              } else {
+                // If Signal Transduction is filtered, use the first available cellular category
+                const availableCategory = cellularCategories.find(cat => shouldIncludeNode(cat, 'cellular'));
+                if (availableCategory) {
+                  finalCellularCategories = [availableCategory];
+                }
+              }
+            }
+          }
 
-          if (relatedCellularCategories.length > 0) {
-            pathwayNode.children = relatedCellularCategories.map(category => {
+          // Create children for ALL matching cellular categories (pathways can have multiple children)
+          if (finalCellularCategories.length > 0) {
+            pathwayNode.children = finalCellularCategories.map(category => {
               const cellularNode: TreeNode = {
                 id: `${pathwayNode.id}_cell_${category.replace(/\s/g, '')}`,
           name: category,
@@ -493,32 +621,31 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
                               Object.fromEntries(Object.entries(organNode.drugEffects).map(([drugId, effect]) => [drugId, effect * 0.6])) : {},
                           };
                           
-                          if (selectedDrugs && selectedDrugs.size > 0) {
-                            const relatedBehaviorCategories = behaviorCategories.filter(behaviorCategory =>
-                              ((behaviorCategory === 'Hypertension' && sysCategory === 'Cardiovascular System') ||
-                              (behaviorCategory === 'Analgesia' && sysCategory === 'Nervous System') ||
-                              (behaviorCategory === 'Hypothermia' && sysCategory === 'Nervous System') ||
-                              (behaviorCategory === 'Unconsciousness' && sysCategory === 'Nervous System') ||
-                              (behaviorCategory === 'Hypotonia' && sysCategory === 'Nervous System')) &&
-                              shouldIncludeNode(behaviorCategory, 'behavior')
-                            );
+                          // Always create behavior/outcome nodes (not just when drugs are selected)
+                          const relatedBehaviorCategories = behaviorCategories.filter(behaviorCategory =>
+                            ((behaviorCategory === 'Hypertension' && sysCategory === 'Cardiovascular System') ||
+                            (behaviorCategory === 'Analgesia' && sysCategory === 'Nervous System') ||
+                            (behaviorCategory === 'Hypothermia' && sysCategory === 'Nervous System') ||
+                            (behaviorCategory === 'Unconsciousness' && sysCategory === 'Nervous System') ||
+                            (behaviorCategory === 'Hypotonia' && sysCategory === 'Nervous System')) &&
+                            shouldIncludeNode(behaviorCategory, 'behavior')
+                          );
 
-                            if (relatedBehaviorCategories.length > 0) {
-                              systemNode.children = relatedBehaviorCategories.map(behaviorCategory => {
-                                const behaviorNode: TreeNode = {
-                                  id: `${systemNode.id}_behav_${behaviorCategory.replace(/\s/g, '')}`,
-                                  name: behaviorCategory,
-                                  category: 'behavior',
-                                  level: 6,
-                                  value: systemNode.value * 0.5,
-                                  color: getBehaviorColor(behaviorCategory),
-                                  drugEffect: (systemNode.drugEffect || 0) * 0.6,
-                                  drugEffects: systemNode.drugEffects ? 
-                                    Object.fromEntries(Object.entries(systemNode.drugEffects).map(([drugId, effect]) => [drugId, effect * 0.6])) : {},
-                                };
-                                return behaviorNode;
-                              });
-                            }
+                          if (relatedBehaviorCategories.length > 0) {
+                            systemNode.children = relatedBehaviorCategories.map(behaviorCategory => {
+                              const behaviorNode: TreeNode = {
+                                id: `${systemNode.id}_behav_${behaviorCategory.replace(/\s/g, '')}`,
+                                name: behaviorCategory,
+                                category: 'behavior',
+                                level: 6,
+                                value: systemNode.value * 0.5,
+                                color: getBehaviorColor(behaviorCategory),
+                                drugEffect: (systemNode.drugEffect || 0) * 0.6,
+                                drugEffects: systemNode.drugEffects ? 
+                                  Object.fromEntries(Object.entries(systemNode.drugEffects).map(([drugId, effect]) => [drugId, effect * 0.6])) : {},
+                              };
+                              return behaviorNode;
+                            });
                           }
                           return systemNode;
                         });
@@ -548,7 +675,7 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
     };
 
     return rootNode;
-  }, [data, drugData, selectedDrugs, selectedPathways, selectedMolecularPathways, selectedCellularFunctions, selectedTissueTypes, selectedOrgans, selectedSystems, selectedOutcomes, treatmentMode]);
+  }, [data, drugData, selectedDrugs, selectedMolecularTypes, selectedMolecularPathways, selectedCellularFunctions, selectedTissueTypes, selectedOrgans, selectedSystems, selectedOutcomes, treatmentMode]);
 
   useEffect(() => {
     if (!svgRef.current || !treeData) return;
@@ -556,29 +683,38 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    // Chart dimensions
-    const width = 2000; // Increased width for more levels
+    // Chart dimensions - make responsive to container
+    const containerWidth = svgRef.current?.parentElement?.clientWidth || 2000;
+    const width = Math.max(containerWidth, 1400); // Minimum width but responsive
     const marginTop = 20;
     const marginRight = 20;
     const marginBottom = 20;
-    const marginLeft = 300; // More space for labels
+    const marginLeft = 200; // Reduced space for labels
 
     // Create hierarchical data structure
     const root = d3.hierarchy<TreeNode>(treeData);
     
-    // Tree spacing
-    const dx = 22; // Slightly reduced vertical spacing to fit more levels
-    const dy = (width - marginRight - marginLeft) / (1 + root.height);
+    // Tree spacing - compact vertical, controlled horizontal
+    const dx = 15; // Reduced from 22 to 15 for more compact vertical spacing
+    const dy = Math.min((width - marginRight - marginLeft) / (1 + root.height), 150); // Cap horizontal spacing at 150px for more compact layout
 
     // Define the tree layout
     const tree = d3.tree<TreeNode>().nodeSize([dx, dy]);
     const diagonal = d3.linkHorizontal().x((d: any) => d.y).y((d: any) => d.x);
 
+    // Calculate total height needed
+    const totalHeight = dx * (root.height + 1) + marginTop + marginBottom;
+    
     // Create the SVG container
     svg.attr('width', width)
-       .attr('height', dx)
-       .attr('viewBox', [-marginLeft, -marginTop, width, dx])
+       .attr('height', totalHeight)
+       .attr('viewBox', [-marginLeft, -marginTop, width, totalHeight])
        .attr('style', `max-width: 100%; height: auto; font: 12px sans-serif; user-select: none; background: transparent;`);
+
+    // Set initial container height to match SVG
+    if (containerRef.current) {
+      containerRef.current.style.height = `${totalHeight + 40}px`; // Add some padding
+    }
 
     const gLink = svg.append('g')
         .attr('fill', 'none')
@@ -592,6 +728,8 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
 
     // Update function for tree transitions
     function update(event: any, source: any) {
+      // Recalculate totalHeight if tree structure changes
+      const currentTotalHeight = dx * (root.height + 1) + marginTop + marginBottom;
       const duration = event?.altKey ? 2500 : 250;
       const nodes = root.descendants().reverse();
       const links = root.links();
@@ -606,12 +744,25 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
         if ((node.x as number) > (right.x as number)) right = node;
       });
 
-      const height = (right.x as number) - (left.x as number) + marginTop + marginBottom;
+      const height = Math.max((right.x as number) - (left.x as number) + marginTop + marginBottom, currentTotalHeight);
 
       const transition = svg.transition()
           .duration(duration)
           .attr('height', height)
           .attr('viewBox', `${-marginLeft} ${(left.x as number) - marginTop} ${width} ${height}`);
+
+      // Update container height to match SVG content
+      // Use requestAnimationFrame to prevent layout thrashing
+      requestAnimationFrame(() => {
+        if (containerRef.current) {
+          const newHeight = height + 40;
+          const currentHeight = parseInt(containerRef.current.style.height) || 0;
+          // Only update if height actually changed
+          if (Math.abs(newHeight - currentHeight) > 1) {
+            containerRef.current.style.height = `${newHeight}px`;
+          }
+        }
+      });
 
       // Update the nodes
       const node = gNode.selectAll('g')
@@ -889,6 +1040,49 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
         }
       });
 
+    // Update container height after initial render
+    let rafId: number | null = null;
+    let lastHeight = 0;
+    
+    const updateContainerHeight = () => {
+      if (svgRef.current && containerRef.current) {
+        const svgHeight = svgRef.current.getBoundingClientRect().height || svgRef.current.clientHeight;
+        const newHeight = svgHeight > 0 ? svgHeight + 40 : 0;
+        
+        // Only update if height actually changed to prevent ResizeObserver loops
+        if (newHeight > 0 && Math.abs(newHeight - lastHeight) > 1) {
+          lastHeight = newHeight;
+          containerRef.current.style.height = `${newHeight}px`;
+        }
+      }
+    };
+
+    // Update container height after a short delay to ensure SVG is rendered
+    setTimeout(updateContainerHeight, 100);
+
+    // Add resize observer to update container when SVG size changes
+    // Use requestAnimationFrame to prevent ResizeObserver loop errors
+    const resizeObserver = new ResizeObserver(() => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        updateContainerHeight();
+        rafId = null;
+      });
+    });
+
+    if (svgRef.current) {
+      resizeObserver.observe(svgRef.current);
+    }
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      resizeObserver.disconnect();
+    };
+
   }, [treeData, isDarkMode, selectedDrugs, treatmentMode, getMultiDrugColor, blendDrugColors]);
 
   return (
@@ -972,7 +1166,7 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
                       className={`toggle-button ${!isMultiSelect ? 'active' : ''}`}
                       onClick={() => {
                         setIsMultiSelect(false);
-                        setSelectedPathways(new Set(['all']));
+                        setSelectedMolecularTypes(new Set(['all']));
                         setSelectedMolecularPathways(new Set(['all']));
                         setSelectedCellularFunctions(new Set(['all']));
                         setSelectedTissueTypes(new Set(['all']));
@@ -995,6 +1189,42 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
               </div>
               
               <div className="filter-grid">
+                {/* Molecular Type Filter */}
+                <div className="filter-section">
+                  <label>Molecular Types:</label>
+                  <div className="filter-options">
+                    {isMultiSelect ? (
+                      <div className="checkbox-group">
+                        {['all', 'PROTEIN', 'METABOLITE', 'LIPID', 'mRNA'].map(molType => (
+                          <label key={molType} className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedMolecularTypes.has(molType)}
+                              onChange={() => handleMolecularTypeSelection(molType)}
+                              className="filter-checkbox"
+                            />
+                            <span className="checkbox-text">
+                              {molType === 'all' ? 'All Types' : molType === 'mRNA' ? 'Transcripts' : molType.charAt(0) + molType.slice(1).toLowerCase() + 's'}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <select 
+                        value={Array.from(selectedMolecularTypes)[0] || 'all'}
+                        onChange={(e) => handleMolecularTypeSelection(e.target.value)}
+                        className="filter-select"
+                      >
+                        <option value="all">All Types</option>
+                        <option value="PROTEIN">Proteins</option>
+                        <option value="METABOLITE">Metabolites</option>
+                        <option value="LIPID">Lipids</option>
+                        <option value="mRNA">Transcripts</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+
                 {/* Molecular Pathway Filter */}
                 <div className="filter-section">
                   <label>Molecular Pathways:</label>
@@ -1037,7 +1267,7 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
                   <div className="filter-options">
                     {isMultiSelect ? (
                       <div className="checkbox-group">
-                        {['Energy Production', 'Protein Synthesis', 'Signal Transduction', 'Membrane Function'].map(func => (
+                        {['all', 'Energy Production', 'Protein Synthesis', 'Signal Transduction', 'Membrane Function'].map(func => (
                           <label key={func} className="checkbox-label">
                             <input
                               type="checkbox"
@@ -1073,7 +1303,7 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
                   <div className="filter-options">
                     {isMultiSelect ? (
                       <div className="checkbox-group">
-                        {['Epithelial Tissue', 'Connective Tissue', 'Muscle Tissue', 'Nervous Tissue'].map(tissue => (
+                        {['all', 'Epithelial Tissue', 'Connective Tissue', 'Muscle Tissue', 'Nervous Tissue'].map(tissue => (
                           <label key={tissue} className="checkbox-label">
                             <input
                               type="checkbox"
@@ -1109,7 +1339,7 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
                   <div className="filter-options">
                     {isMultiSelect ? (
                       <div className="checkbox-group">
-                        {['Heart', 'Lungs', 'Brain', 'Liver', 'Kidneys', 'Stomach'].map(organ => (
+                        {['all', 'Heart', 'Lungs', 'Brain', 'Liver', 'Kidneys', 'Stomach'].map(organ => (
                           <label key={organ} className="checkbox-label">
                             <input
                               type="checkbox"
@@ -1147,7 +1377,7 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
                   <div className="filter-options">
                     {isMultiSelect ? (
                       <div className="checkbox-group">
-                        {['Cardiovascular System', 'Respiratory System', 'Nervous System', 'Digestive System', 'Excretory System'].map(system => (
+                        {['all', 'Cardiovascular System', 'Respiratory System', 'Nervous System', 'Digestive System', 'Excretory System'].map(system => (
                           <label key={system} className="checkbox-label">
                             <input
                               type="checkbox"
@@ -1184,7 +1414,7 @@ const SankeyFlowDiagram: React.FC<SankeyFlowDiagramProps> = ({
                   <div className="filter-options">
                     {isMultiSelect ? (
                       <div className="checkbox-group">
-                        {['Hypertension', 'Analgesia', 'Hypothermia', 'Unconsciousness', 'Hypotonia'].map(outcome => (
+                        {['all', 'Hypertension', 'Analgesia', 'Hypothermia', 'Unconsciousness', 'Hypotonia'].map(outcome => (
                           <label key={outcome} className="checkbox-label">
                             <input
                               type="checkbox"

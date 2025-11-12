@@ -208,7 +208,8 @@
   border: 1px solid var(--border-primary);
   overflow: auto;
   min-height: 600px;
-  max-height: 800px;
+  max-height: none; /* Remove max-height restriction */
+  /* Height will be set dynamically by JavaScript based on SVG content */
 }
 
 .sankey-flow-diagram {
@@ -216,7 +217,7 @@
   background: transparent;
   width: 100%;
   height: auto;
-  min-height: 400px;
+  min-height: 600px; /* Increased from 400px for better visibility */
 }
 
 /* Tree node styling */
@@ -267,6 +268,18 @@
 }
 
 /* Responsive design */
+@media (max-width: 1440px) {
+  /* Laptop and smaller screens */
+  .sankey-wrapper {
+    /* Height will be set dynamically by JavaScript based on SVG content */
+    min-height: 500px;
+  }
+  
+  .sankey-flow-diagram {
+    min-height: 500px;
+  }
+}
+
 @media (max-width: 768px) {
   .sankey-flow-container {
     padding: 10px;
@@ -304,6 +317,7 @@
   
   .sankey-wrapper {
     min-height: 400px;
+    /* Height will be set dynamically by JavaScript based on SVG content */
   }
   
   .sankey-flow-diagram {
