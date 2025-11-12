@@ -99,6 +99,18 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
 
   // Generate hierarchical network data with drug-specific topology
   const networkData = useMemo(() => {
+    // Deterministic pseudo-random function for consistent edge generation across view modes
+    const deterministicRandom = (seed: string | number, index: number = 0): number => {
+      const str = `${seed}_${index}`;
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      return Math.abs(hash) / 2147483647; // Normalize to 0-1
+    };
+    
     const nodes: Node3D[] = [];
     const links: Link3D[] = [];
     
@@ -461,48 +473,36 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
 
       if (!currentNodes || !nextNodes || currentNodes.length === 0 || nextNodes.length === 0) return;
 
-      if (viewMode === 'grid') {
-        // In Grid Mode, connect each node to a few below it
-        currentNodes.forEach(sourceId => {
-          const connectionsPerNode = Math.min(4, Math.max(2, Math.floor(nextNodes.length / currentNodes.length)));
-          for (let i = 0; i < connectionsPerNode; i++) {
-            const targetId = nextNodes[Math.floor(Math.random() * nextNodes.length)];
-            links.push({
-              source: sourceId,
-              target: targetId,
-              color: isDarkMode ? `rgba(100, 150, 255, 0.6)` : `rgba(25, 118, 210, 0.8)`,
-              width: 1.5
-            });
-          }
-        });
-      } else {
-        // In Organic Mode, use the more complex connection logic
-        if (level.name === 'systems') {
+      // Use the same connection logic for both grid and organic modes
+      if (level.name === 'systems') {
           // Systems connect to organs and tissues
-          currentNodes.forEach(systemNodeId => {
-            (levelNodes['organs'] || []).forEach(organId => {
-              if (Math.random() < connectionDensity) links.push({ source: systemNodeId, target: organId, color: isDarkMode ? `rgba(255, 107, 53, 0.7)` : `rgba(229, 81, 0, 0.9)`, width: 3.0 });
+          currentNodes.forEach((systemNodeId, systemIndex) => {
+            (levelNodes['organs'] || []).forEach((organId, organIndex) => {
+              if (deterministicRandom(systemNodeId, organIndex) < connectionDensity) links.push({ source: systemNodeId, target: organId, color: isDarkMode ? `rgba(255, 107, 53, 0.7)` : `rgba(229, 81, 0, 0.9)`, width: 3.0 });
             });
             const tissueNodes = levelNodes['tissues'] || [];
             const connectionsCount = selectedDrug ? Math.floor(tissueNodes.length * 0.4) : Math.floor(tissueNodes.length * 0.2);
             for (let i = 0; i < connectionsCount; i++) {
-              const targetId = tissueNodes[Math.floor(Math.random() * tissueNodes.length)];
+              const targetIndex = Math.floor(deterministicRandom(systemNodeId, i) * tissueNodes.length);
+              const targetId = tissueNodes[targetIndex];
               if (targetId) links.push({ source: systemNodeId, target: targetId, color: isDarkMode ? `rgba(247, 147, 30, 0.5)` : `rgba(245, 124, 0, 0.7)`, width: 2.0 });
             }
           });
         } else if (level.name === 'organs') {
            // Organs connect to tissues and cellular
-          currentNodes.forEach(organNodeId => {
+          currentNodes.forEach((organNodeId, organIndex) => {
             const tissueNodes = levelNodes['tissues'] || [];
             let connectionsCount = Math.floor(tissueNodes.length * connectionDensity * 0.3);
             for (let i = 0; i < connectionsCount; i++) {
-              const targetId = tissueNodes[Math.floor(Math.random() * tissueNodes.length)];
+              const targetIndex = Math.floor(deterministicRandom(organNodeId, i) * tissueNodes.length);
+              const targetId = tissueNodes[targetIndex];
               if (targetId) links.push({ source: organNodeId, target: targetId, color: isDarkMode ? `rgba(79, 179, 217, 0.6)` : `rgba(25, 118, 210, 0.8)`, width: 1.5 });
             }
             const cellularNodes = levelNodes['cellular'] || [];
             connectionsCount = Math.floor(cellularNodes.length * connectionDensity * 0.2);
              for (let i = 0; i < connectionsCount; i++) {
-              const targetId = cellularNodes[Math.floor(Math.random() * cellularNodes.length)];
+              const targetIndex = Math.floor(deterministicRandom(organNodeId, i + 1000) * cellularNodes.length);
+              const targetId = cellularNodes[targetIndex];
               if (targetId) links.push({ source: organNodeId, target: targetId, color: isDarkMode ? `rgba(146, 208, 80, 0.5)` : `rgba(56, 142, 60, 0.7)`, width: 1.0, bundled: true, bundleStrength: 0.6 });
             }
           });
@@ -515,12 +515,13 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
               const targetModule = (currentModule * targetModules + t) % nextLevel.modules;
               const targetModuleNodes = moduleNodes[nextLevel.name][targetModule];
               if (currentModuleNodes && targetModuleNodes) {
-                currentModuleNodes.forEach(higherNodeId => {
+                currentModuleNodes.forEach((higherNodeId, nodeIndex) => {
                   const isMolecularTarget = nextLevel.name === 'molecular';
                   const baseConnections = isMolecularTarget ? Math.max(2, Math.floor(targetModuleNodes.length / currentModuleNodes.length)) : Math.max(1, Math.floor(targetModuleNodes.length / currentModuleNodes.length / 2));
                   const connectionsCount = Math.floor(baseConnections * connectionDensity);
                   for (let i = 0; i < connectionsCount; i++) {
-                    const lowerNodeId = targetModuleNodes[Math.floor(Math.random() * targetModuleNodes.length)];
+                    const targetIndex = Math.floor(deterministicRandom(higherNodeId, currentModule * 1000 + nodeIndex * 100 + i) * targetModuleNodes.length);
+                    const lowerNodeId = targetModuleNodes[targetIndex];
                     if (lowerNodeId) {
                       const isMolecularConnection = level.name === 'cellular' || nextLevel.name === 'molecular';
                       links.push({
@@ -542,63 +543,45 @@ const HierarchicalNetwork3D: React.FC<HierarchicalNetwork3DProps> = ({
     });
 
     // --- Create Intra-Layer Connections ---
-    if (viewMode === 'grid') {
-      // Horizontal connections for grid neighbors
-      hierarchyLevels.forEach((level) => {
-        if (!visibleLayers.has(level.name)) return;
-        const layerNodes = levelNodes[level.name];
-        if (!layerNodes || layerNodes.length === 0) return;
-        const gridSize = Math.ceil(Math.sqrt(level.count));
-        layerNodes.forEach((nodeId, index) => {
-          const row = Math.floor(index / gridSize);
-          const col = index % gridSize;
-          if (col < gridSize - 1) {
-            const rightIndex = row * gridSize + (col + 1);
-            if (rightIndex < layerNodes.length) links.push({ source: nodeId, target: layerNodes[rightIndex], color: isDarkMode ? `rgba(120, 120, 150, 0.3)` : `rgba(100, 100, 100, 0.4)`, width: 0.8 });
-          }
-          if (row < gridSize - 1) {
-            const bottomIndex = (row + 1) * gridSize + col;
-            if (bottomIndex < layerNodes.length) links.push({ source: nodeId, target: layerNodes[bottomIndex], color: isDarkMode ? `rgba(120, 120, 150, 0.3)` : `rgba(100, 100, 100, 0.4)`, width: 0.8 });
-          }
-        });
-      });
-    } else {
-      // Intra-module and bundled stream connections for organic mode
-      hierarchyLevels.forEach((level) => {
-        if (!visibleLayers.has(level.name)) return;
-        // Reduced intra-module connections
-        for (let moduleId = 0; moduleId < level.modules; moduleId++) {
-          const moduleNodeIds = moduleNodes[level.name][moduleId];
-          if (!moduleNodeIds || moduleNodeIds.length < 2) continue;
-          const intraConnections = Math.min(moduleNodeIds.length * (selectedDrug ? 0.25 : 0.2), 15);
-          for (let i = 0; i < intraConnections; i++) {
-            const node1Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
-            const node2Id = moduleNodeIds[Math.floor(Math.random() * moduleNodeIds.length)];
-            if (node1Id !== node2Id) links.push({ source: node1Id, target: node2Id, color: isDarkMode ? `rgba(120, 120, 150, 0.2)` : `rgba(100, 100, 100, 0.3)`, width: 0.4 });
-          }
+    // Use the same connection logic for both grid and organic modes
+    hierarchyLevels.forEach((level) => {
+      if (!visibleLayers.has(level.name)) return;
+      // Reduced intra-module connections
+      for (let moduleId = 0; moduleId < level.modules; moduleId++) {
+        const moduleNodeIds = moduleNodes[level.name][moduleId];
+        if (!moduleNodeIds || moduleNodeIds.length < 2) continue;
+        const intraConnections = Math.min(moduleNodeIds.length * (selectedDrug ? 0.25 : 0.2), 15);
+        for (let i = 0; i < intraConnections; i++) {
+          const node1Index = Math.floor(deterministicRandom(`${level.name}_${moduleId}`, i * 2) * moduleNodeIds.length);
+          const node2Index = Math.floor(deterministicRandom(`${level.name}_${moduleId}`, i * 2 + 1) * moduleNodeIds.length);
+          const node1Id = moduleNodeIds[node1Index];
+          const node2Id = moduleNodeIds[node2Index];
+          if (node1Id !== node2Id) links.push({ source: node1Id, target: node2Id, color: isDarkMode ? `rgba(120, 120, 150, 0.2)` : `rgba(100, 100, 100, 0.3)`, width: 0.4 });
         }
-      });
-       // Fewer bundled molecular streams with drug emphasis
-      const streamCount = selectedDrug ? 100 : 60;
-      for (let i = 0; i < streamCount; i++) {
-        const level1 = Math.floor(Math.random() * hierarchyLevels.length);
-        const level2 = Math.floor(Math.random() * hierarchyLevels.length);
-        if (Math.abs(level1 - level2) >= 2 && Math.abs(level1 - level2) <= 4) {
-          const nodes1 = levelNodes[hierarchyLevels[level1].name];
-          const nodes2 = levelNodes[hierarchyLevels[level2].name];
-          if (nodes1 && nodes2 && nodes1.length > 0 && nodes2.length > 0) {
-            const node1Id = nodes1[Math.floor(Math.random() * nodes1.length)];
-            const node2Id = nodes2[Math.floor(Math.random() * nodes2.length)];
-            const isMolecularStream = (hierarchyLevels[level1].name === 'molecular' || hierarchyLevels[level2].name === 'molecular');
-            links.push({
-              source: node1Id,
-              target: node2Id,
-              color: isMolecularStream ? (isDarkMode ? `rgba(120, 180, 255, 0.15)` : `rgba(63, 81, 181, 0.25)`) : (isDarkMode ? `rgba(80, 80, 110, 0.08)` : `rgba(117, 117, 117, 0.15)`),
-              width: isMolecularStream ? 0.2 : 0.3,
-              bundled: isMolecularStream,
-              bundleStrength: isMolecularStream ? 0.9 : 0.0
-            });
-          }
+      }
+    });
+     // Fewer bundled molecular streams with drug emphasis
+    const streamCount = selectedDrug ? 100 : 60;
+    for (let i = 0; i < streamCount; i++) {
+      const level1 = Math.floor(deterministicRandom('stream', i * 3) * hierarchyLevels.length);
+      const level2 = Math.floor(deterministicRandom('stream', i * 3 + 1) * hierarchyLevels.length);
+      if (Math.abs(level1 - level2) >= 2 && Math.abs(level1 - level2) <= 4) {
+        const nodes1 = levelNodes[hierarchyLevels[level1].name];
+        const nodes2 = levelNodes[hierarchyLevels[level2].name];
+        if (nodes1 && nodes2 && nodes1.length > 0 && nodes2.length > 0) {
+          const node1Index = Math.floor(deterministicRandom('stream', i * 3 + 2) * nodes1.length);
+          const node2Index = Math.floor(deterministicRandom('stream', i * 3 + 3) * nodes2.length);
+          const node1Id = nodes1[node1Index];
+          const node2Id = nodes2[node2Index];
+          const isMolecularStream = (hierarchyLevels[level1].name === 'molecular' || hierarchyLevels[level2].name === 'molecular');
+          links.push({
+            source: node1Id,
+            target: node2Id,
+            color: isMolecularStream ? (isDarkMode ? `rgba(120, 180, 255, 0.15)` : `rgba(63, 81, 181, 0.25)`) : (isDarkMode ? `rgba(80, 80, 110, 0.08)` : `rgba(117, 117, 117, 0.15)`),
+            width: isMolecularStream ? 0.2 : 0.3,
+            bundled: isMolecularStream,
+            bundleStrength: isMolecularStream ? 0.9 : 0.0
+          });
         }
       }
     }
